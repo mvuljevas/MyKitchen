@@ -37,6 +37,15 @@ npm install
 
 ## Development
 
+Run the full local suite in one terminal:
+
+```bash
+npm run suite
+```
+
+This starts the Vite UI, the read-only helper, and the live monitor together.
+Use `Ctrl+C` in that terminal to stop all three.
+
 ```bash
 npm run dev
 ```
@@ -52,6 +61,12 @@ Watch local process, WSL, workload, and parser observations in a console:
 
 ```bash
 npm run monitor
+```
+
+If you only want the UI and helper without console monitoring:
+
+```bash
+npm run suite:ui
 ```
 
 Optional helper configuration:

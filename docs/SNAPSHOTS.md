@@ -269,3 +269,33 @@ Risks:
 Next suggested step:
 
 - Implement machine report import and combined multi-PC 7-day totals.
+
+## 2026-06-28 - Block 008: Local Suite Orchestration
+
+Branch:
+
+- `main`
+
+Current state:
+
+- A one-command local supervisor is available with `npm run suite`.
+- The supervisor starts Vite, the read-only helper, and the console monitor in
+  one terminal with prefixed output.
+- `npm run suite:ui` starts only Vite and the helper.
+- Version moved to `0.6.0`.
+
+Decisions:
+
+- Use built-in Node process management instead of adding a process manager
+  dependency.
+- Stop all child services from the same terminal with `Ctrl+C`.
+
+Risks:
+
+- The supervisor is development-focused and does not replace production
+  packaging.
+
+Next suggested step:
+
+- Improve the Machines view with import of a second PC report when multi-PC
+  totals become a priority.

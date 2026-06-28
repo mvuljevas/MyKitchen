@@ -1,10 +1,12 @@
 {
   "name": "salad-chopping-hours",
   "private": true,
-  "version": "0.5.0",
+  "version": "0.6.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "suite": "node src/dev/suite.js",
+    "suite:ui": "node src/dev/suite.js --no-monitor",
     "helper": "node src/helper/server.js",
     "monitor": "node src/helper/monitor.js",
     "build": "vite build",

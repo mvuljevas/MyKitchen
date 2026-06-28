@@ -7,10 +7,10 @@ This file is the compact project summary for agents working in this repository.
 - Name: SaladChoppingHours.
 - Purpose: local web application for automatically calculating Salad Chopping
   hours and Star Chef qualification signals from a Salad installation folder.
-- Current version: 0.5.0.
+- Current version: 0.6.0.
 - Current phase: dashboard connected to a narrow read-only local helper with
-  Chopping-hour history, Windows/WSL observability, live monitor, and machine
-  report export.
+  Chopping-hour history, Windows/WSL observability, live monitor, machine report
+  export, and one-command local suite orchestration.
 
 ## Stack
 
@@ -58,10 +58,16 @@ This file is the compact project summary for agents working in this repository.
 npm install
 
 # run local dev server
+npm run suite
+
+# run only Vite
 npm run dev
 
 # run read-only helper
 npm run helper
+
+# run console monitor
+npm run monitor
 
 # build verification
 npm run build
@@ -92,6 +98,7 @@ git diff --check
 - `src/helper/workloadClassifier.js`: workload type/source/confidence
   classification.
 - `src/helper/monitor.js`: console monitor for live helper observations.
+- `src/dev/suite.js`: one-command supervisor for UI, helper, and monitor.
 - `src/api/dashboard.js`: UI API adapter with helper/fallback behavior.
 - `src/data/sampleDashboard.js`: structured fallback values.
 - `docs/SNAPSHOTS.md`: chronological project memory.
