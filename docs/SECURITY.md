@@ -56,3 +56,14 @@ The helper API should:
 - Whether localhost requests need a per-session token.
 - Whether process detection needs elevated permissions on some systems.
 - How to handle multiple Salad installation locations.
+
+## Current Implementation
+
+- Helper entrypoint: `src/helper/server.js`.
+- Default bind address: `127.0.0.1`.
+- Default port: `48173`.
+- Default Salad path: `C:\ProgramData\Salad`.
+- Log reads are limited to the last 64 KiB and the last 200 lines.
+- Log file discovery is bounded by scan depth and result count.
+- Chopping history parsing reads allowlisted miner logs under the configured
+  Salad installation path and does not return raw log lines.

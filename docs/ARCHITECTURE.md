@@ -60,8 +60,11 @@ operations. Example endpoint shape:
 GET /health
 GET /salad/status
 GET /salad/logs
+GET /salad/chopping-history
 GET /salad/logs/:id/window
 ```
+
+These endpoints are implemented by `src/helper/server.js`.
 
 Exact endpoint names can change during implementation, but the API should keep
 the same constraints:
@@ -73,10 +76,14 @@ the same constraints:
 
 ## Implementation Notes
 
-The helper language and runtime are not fixed yet. The next implementation
-block should choose the smallest option that fits the existing Node/Vite stack.
-A Node-based helper is the current default because the repository already uses
-npm and can share development scripts.
+The helper is implemented with Node.js using built-in modules only. It binds to
+`127.0.0.1:48173` by default and can be configured with:
+
+```text
+SALAD_HELPER_HOST
+SALAD_HELPER_PORT
+SALAD_INSTALL_PATH
+```
 
 ## Deferred Decisions
 
@@ -84,3 +91,4 @@ npm and can share development scripts.
 - Whether to support non-Windows Salad installation paths.
 - Whether to add authentication for localhost access.
 - How to store user-selected Salad path preferences.
+- Whether non-miner Salad logs should refine Chopping interval boundaries.

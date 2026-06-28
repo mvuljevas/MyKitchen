@@ -7,9 +7,9 @@ This file is the compact project summary for agents working in this repository.
 - Name: SaladChoppingHours.
 - Purpose: local web application for automatically calculating Salad Chopping
   hours and Star Chef qualification signals from a Salad installation folder.
-- Current version: 0.1.0.
-- Current phase: local access architecture selected; Salad-specific logic is
-  not implemented yet.
+- Current version: 0.4.0.
+- Current phase: dashboard connected to a narrow read-only local helper with
+  Chopping-hour history calculated from miner log signals.
 
 ## Stack
 
@@ -40,6 +40,12 @@ This file is the compact project summary for agents working in this repository.
 │   └── WORKFLOWS.md
 ├── LICENSE
 └── src/
+    ├── api/
+    │   └── dashboard.js
+    ├── data/
+    │   └── sampleDashboard.js
+    ├── helper/
+    │   └── server.js
     ├── main.jsx
     └── styles.css
 ```
@@ -52,6 +58,9 @@ npm install
 
 # run local dev server
 npm run dev
+
+# run read-only helper
+npm run helper
 
 # build verification
 npm run build
@@ -72,7 +81,13 @@ git diff --check
 - `README.md`: project purpose, planned scope, and documentation map.
 - `AGENTS.md`: active agent workflow rules for this repository.
 - `package.json`: authoritative version source and npm scripts.
-- `src/`: React application code.
+- `src/`: React UI and local helper code.
+- `src/helper/server.js`: localhost helper with health, status, logs, and log
+  window endpoints.
+- `src/helper/choppingParser.js`: parser for mining signal intervals and daily
+  Chopping-hour totals.
+- `src/api/dashboard.js`: UI API adapter with helper/fallback behavior.
+- `src/data/sampleDashboard.js`: structured fallback values.
 - `docs/SNAPSHOTS.md`: chronological project memory.
 - `docs/ROADMAP.md`: planned product direction.
 - `docs/TECHDEBT.md`: accepted risks and open cleanup items.
@@ -86,16 +101,16 @@ git diff --check
   behavior.
 - Use a React/Vite browser UI backed by a small read-only localhost helper for
   Salad filesystem inspection and process status.
-- Keep Salad-specific parser implementation paused until the local helper
-  skeleton is introduced.
+- Use the local helper for process status and log metadata.
+- Calculate Chopping-hour history from miner log `Mining at` signals when the
+  helper is running.
 - Plan for a local web app that can read Salad logs and detect running Salad
   processes without requiring an AI agent.
 
 ## Current Risks
 
-- The local helper is not implemented yet.
-- Helper API path validation, response limits, and localhost binding must be
-  implemented before reading real Salad data.
+- Helper process detection is heuristic and Windows-focused.
+- Parser currently uses miner log signals and a gap heuristic for intervals.
 - Salad log formats and official Star Chef rules can change over time.
 
 ## Search Notes

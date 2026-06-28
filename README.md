@@ -9,10 +9,16 @@ weekly Chopping time toward Star Chef qualification.
 This repository has been aligned with the `react-vite-spa` template from the
 local `AGENTS` repository and uses the `lean-context` workflow preset.
 
-The application shell exists. The selected architecture is a React/Vite browser
-UI backed by a small read-only localhost helper for Salad file inspection and
-process status. Salad-specific parsing and runtime detection have not been
-implemented yet.
+The application now has an initial dashboard for tracking Salad process status,
+workload status, installation folder, weekly Chopping hours, and recent
+log-derived signals. The selected architecture is a React/Vite browser UI backed
+by a small read-only localhost helper for Salad file inspection and process
+status.
+
+The helper can report health, inspect known Salad processes, list bounded Salad
+log metadata, read bounded log windows, and calculate recent Chopping-hour
+history from miner log signals. The dashboard falls back to structured sample
+data when the helper is not running.
 
 ## Requirements
 
@@ -31,6 +37,21 @@ npm install
 npm run dev
 ```
 
+Run the helper in a second terminal when you want local Salad status and log
+metadata:
+
+```bash
+npm run helper
+```
+
+Optional helper configuration:
+
+```powershell
+$env:SALAD_INSTALL_PATH = "C:\ProgramData\Salad"
+$env:SALAD_HELPER_PORT = "48173"
+npm run helper
+```
+
 ## Verification
 
 ```bash
@@ -41,7 +62,7 @@ npm run build
 
 - Read Salad logs and configuration from the local installation directory.
 - Detect whether Salad and its workload service are currently running.
-- Reconstruct Chopping intervals from local Salad status events.
+- Reconstruct Chopping intervals from local Salad miner log signals.
 - Compare totals against the official Star Chef threshold.
 - Present results in a local web interface without requiring an AI agent.
 

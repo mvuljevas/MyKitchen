@@ -59,7 +59,7 @@ Resolution path:
 
 ## TD-004: Local Helper Not Implemented
 
-Status: open.
+Status: resolved.
 
 Context:
 
@@ -68,10 +68,67 @@ Context:
 
 Impact:
 
-- The browser UI cannot automatically inspect Salad data until the helper
-  exists.
+- The browser UI can now inspect helper health, process status, and bounded log
+  metadata from localhost.
 
 Resolution path:
 
-- Add a narrow helper skeleton with health, status, and bounded log metadata
-  endpoints before implementing parser behavior against real data.
+- Implemented in `src/helper/server.js`.
+
+## TD-005: Dashboard Uses Sample Data
+
+Status: resolved.
+
+Context:
+
+- The first dashboard screen uses structured sample values for process status,
+  workload status, Chopping history, and recent events.
+
+Impact:
+
+- The UI reflects local helper status, log metadata, and Chopping-hour history
+  when available.
+
+Resolution path:
+
+- Implemented with `/salad/chopping-history`; sample data remains as offline
+  fallback.
+
+## TD-006: Process Detection Is Heuristic
+
+Status: open.
+
+Context:
+
+- The local helper checks Windows process names with `tasklist` and a small set
+  of Salad/workload name hints.
+
+Impact:
+
+- Active workload status may be unknown or incomplete until real process names
+  are confirmed on machines running Salad.
+
+Resolution path:
+
+- Validate process names against a real Salad installation and update the
+  helper's allowlisted process hints.
+
+## TD-007: Chopping Parser Uses Miner Signal Heuristics
+
+Status: open.
+
+Context:
+
+- The first parser derives Chopping intervals from miner log lines containing
+  `Mining at` and closes intervals when signal gaps exceed two minutes.
+
+Impact:
+
+- It can calculate useful local history from available logs, but exact Salad
+  Chopping semantics may require additional status events or official behavior
+  confirmation.
+
+Resolution path:
+
+- Compare calculated intervals against known Salad sessions and refine parser
+  boundaries with additional log sources when needed.

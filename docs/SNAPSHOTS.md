@@ -136,3 +136,104 @@ Next suggested step:
 
 - Add the narrow local helper skeleton, then implement bounded log metadata and
   parser fixtures.
+
+## 2026-06-28 - Block 004: Dashboard Prototype
+
+Branch:
+
+- `main`
+
+Current state:
+
+- The React/Vite app now shows an initial dashboard prototype.
+- The dashboard presents Salad installation folder, process status, workload
+  status, weekly Chopping history, Star Chef progress, and recent signals.
+- Values are structured sample data only; no Salad filesystem access, helper
+  API, process detection, or log parser has been implemented yet.
+- Version moved to `0.2.0`.
+
+Decisions:
+
+- Build the first user-facing experience before wiring real local data.
+- Use CSS and native markup for the chart instead of adding a chart dependency.
+- Keep dashboard data shaped around future helper responses.
+
+Risks:
+
+- The UI can look complete before the local data pipeline exists.
+- Real Salad log formats still need inspection with private data kept out of
+  the repository.
+
+Next suggested step:
+
+- Add the read-only local helper skeleton and replace dashboard sample data with
+  bounded helper responses.
+
+## 2026-06-28 - Block 005: Local Helper Skeleton
+
+Branch:
+
+- `main`
+
+Current state:
+
+- The repository has a Node-based read-only localhost helper.
+- The helper exposes `/health`, `/salad/status`, `/salad/logs`, and
+  `/salad/logs/:id/window`.
+- The dashboard loads helper status and log metadata when the helper is
+  available, with structured sample data as fallback.
+- Chopping-hour history is still sample data; log parsing and interval
+  calculation have not been implemented.
+- Version moved to `0.3.0`.
+
+Decisions:
+
+- Use built-in Node modules for the helper to avoid new dependencies.
+- Keep helper access bounded to the configured Salad installation path.
+- Keep UI Chopping totals separate from helper metadata until parser behavior
+  is known.
+
+Risks:
+
+- Process and workload detection are heuristic until tested against a live
+  Salad installation.
+- The helper does not yet use a per-session localhost token.
+- Real Salad log formats still need parser fixtures.
+
+Next suggested step:
+
+- Inspect bounded log windows from a real Salad installation and implement the
+  first Chopping interval parser with anonymized fixtures.
+
+## 2026-06-28 - Block 006: Miner Log History Parser
+
+Branch:
+
+- `main`
+
+Current state:
+
+- The helper exposes `/salad/chopping-history`.
+- Chopping history is calculated from miner log lines containing `Mining at`.
+- The dashboard uses helper-provided history when available and keeps sample
+  data only as offline fallback.
+- The chart scale is fixed at `0h` to `24h` so labels remain visible when a day
+  approaches the maximum.
+- Version moved to `0.4.0`.
+
+Decisions:
+
+- Treat miner `Mining at` lines as the first reliable Chopping activity signal.
+- Close Chopping intervals when mining signals are separated by more than two
+  minutes.
+- Keep raw log lines inside the helper and return only summaries to the UI.
+
+Risks:
+
+- Parser accuracy still depends on validating miner signals against known Salad
+  sessions.
+- Some future Salad workloads may not use the same miner log patterns.
+
+Next suggested step:
+
+- Add anonymized parser fixtures and tests for interval reconstruction.

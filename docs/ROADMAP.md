@@ -21,13 +21,14 @@ Status: complete.
 
 - Add a narrow read-only local helper skeleton.
 - Add bounded sample log access for parser development.
+- Replace dashboard sample data with parsed helper responses.
 - Parse Salad start and stop status events.
 - Collapse duplicate state transitions.
 - Reconstruct Chopping intervals.
 - Calculate rolling 7-day, current-week, and previous-week totals.
 - Compare totals to the Star Chef threshold.
 
-Status: next.
+Status: started.
 
 ## Phase 3: Local Web UI
 
@@ -36,7 +37,7 @@ Status: next.
 - Show Chopping totals and qualification summary.
 - Show source log window and last relevant events.
 
-Status: planned.
+Status: started.
 
 ## Phase 4: Verification and Packaging
 
