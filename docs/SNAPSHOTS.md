@@ -508,3 +508,33 @@ Risks:
 Next suggested step:
 
 - Add a small tray or packaged Windows host when moving beyond the dev suite.
+
+## 2026-06-28 - Block 015: Direct Elevated Node Relaunch
+
+Branch:
+
+- `main`
+
+Current state:
+
+- Windows elevated relaunch starts `node.exe` directly instead of launching a
+  persistent PowerShell child.
+- The original `npm run suite` command waits for `http://127.0.0.1:5173/` to
+  respond before reporting that the background suite is running.
+- Version moved to `0.8.4`.
+
+Decisions:
+
+- Use PowerShell only as the native UAC launcher and keep the long-lived process
+  as hidden Node.js.
+- Keep `SALAD_FOREGROUND=1` as the diagnostic path when startup cannot be
+  confirmed.
+
+Risks:
+
+- Windows UAC itself must still be visible; only the elevated app process is
+  hidden.
+
+Next suggested step:
+
+- Add persistent startup logs for packaged Windows troubleshooting.

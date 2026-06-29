@@ -3,6 +3,7 @@ import os from "node:os";
 import { promisify } from "node:util";
 
 const execFileAsync = promisify(execFile);
+const elevatedChildArg = "--salad-elevated-child";
 
 export async function inspectElevation() {
   if (os.platform() !== "win32") {
@@ -40,7 +41,11 @@ export async function ensureElevatedProcess({
   relaunchEnv = {},
   forceRelaunch = false,
 }) {
-  if (os.platform() !== "win32" || process.env.SALAD_ELEVATED_RELAUNCH === "1") {
+  if (
+    os.platform() !== "win32" ||
+    process.env.SALAD_ELEVATED_RELAUNCH === "1" ||
+    process.argv.includes(elevatedChildArg)
+  ) {
     return false;
   }
 
@@ -63,35 +68,26 @@ export async function relaunchElevatedNode({ argv, label, relaunchEnv = {} }) {
   const envScript = Object.entries(envAssignments)
     .map(([key, value]) => `$env:${key} = '${escapePowerShellSingleQuoted(String(value))}'`)
     .join("; ");
-  const nodeCommand = [
-    `& '${escapePowerShellSingleQuoted(process.execPath)}'`,
-    ...argv.map((arg) => `'${escapePowerShellSingleQuoted(arg)}'`),
-  ].join(" ");
+  const nodeArgs = [...argv, elevatedChildArg];
+  const windowStyle = process.env.SALAD_ELEVATED_WINDOW ?? "Hidden";
   const command = [
-    `$Host.UI.RawUI.WindowTitle = '${escapePowerShellSingleQuoted(label)}'`,
     envScript,
-    nodeCommand,
+    [
+      "Start-Process",
+      "-Verb RunAs",
+      `-WorkingDirectory '${escapePowerShellSingleQuoted(cwd)}'`,
+      `-FilePath '${escapePowerShellSingleQuoted(process.execPath)}'`,
+      `-WindowStyle ${windowStyle}`,
+      "-ArgumentList",
+      formatArgumentList(nodeArgs),
+    ].join(" "),
   ]
     .filter(Boolean)
     .join("; ");
-  const windowStyle = process.env.SALAD_ELEVATED_WINDOW ?? "Hidden";
-  const shellArgs = ["-NoProfile", "-Command", command];
 
   await execFileAsync(
     "powershell.exe",
-    [
-      "-NoProfile",
-      "-Command",
-      [
-        "Start-Process",
-        "-Verb RunAs",
-        `-WorkingDirectory '${escapePowerShellSingleQuoted(cwd)}'`,
-        "-FilePath powershell.exe",
-        `-WindowStyle ${windowStyle}`,
-        "-ArgumentList",
-        formatArgumentList(shellArgs),
-      ].join(" "),
-    ],
+    ["-NoProfile", "-Command", command],
     { windowsHide: true },
   );
 }

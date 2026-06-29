@@ -60,6 +60,9 @@ This starts the Vite UI, the read-only helper, and the live monitor together.
 On Windows, the suite checks administrator status before opening ports. If the
 current terminal is not elevated, it requests a native UAC relaunch and runs the
 UI, helper, and monitor from a hidden elevated process managed by the app.
+The elevated relaunch starts `node.exe` directly instead of keeping a PowerShell
+window alive, and the original command waits until the dashboard responds before
+reporting success.
 If an existing healthy suite is already running, the command reuses it and opens
 the dashboard instead of crashing on occupied ports.
 The suite opens `http://127.0.0.1:5173/` in the default browser after Vite is

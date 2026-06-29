@@ -95,6 +95,7 @@ server.on("error", (error) => {
     process.stdout.write(
       `SaladChoppingHours helper port ${host}:${port} is already in use; reusing the existing listener if it is healthy.\n`,
     );
+    process.exit(0);
     return;
   }
 
