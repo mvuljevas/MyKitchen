@@ -73,3 +73,5 @@ The helper API should:
   UI dev server, helper, and monitor run in one administrator context.
 - Elevated execution is still local-only: the helper remains bound to localhost
   and the API stays purpose-built for Salad inspection.
+- Hidden elevated execution can be stopped from the Settings view through the
+  localhost-only managed suite shutdown endpoint.

@@ -476,3 +476,35 @@ Next suggested step:
 
 - Add a packaged Windows launch strategy once the app moves beyond the dev
   suite.
+
+## 2026-06-28 - Block 014: Hidden Managed Suite
+
+Branch:
+
+- `main`
+
+Current state:
+
+- The elevated Windows relaunch runs hidden by default instead of leaving a
+  visible administrator PowerShell window.
+- `npm run suite` checks for an existing healthy helper and UI before starting
+  new listeners, preventing duplicate `48173` startup crashes.
+- The helper handles `EADDRINUSE` without an unhandled Node error.
+- The app exposes managed suite state in Settings and can stop the hidden suite
+  through `/suite/shutdown`.
+- Version moved to `0.8.3`.
+
+Decisions:
+
+- Use the app's Live Monitor and Settings view as the operational surface for
+  the background suite.
+- Keep `SALAD_FOREGROUND=1` available for visible-terminal debugging.
+
+Risks:
+
+- If an older helper without `/suite/shutdown` is already running, the app can
+  reuse it but cannot stop that older process from Settings.
+
+Next suggested step:
+
+- Add a small tray or packaged Windows host when moving beyond the dev suite.

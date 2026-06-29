@@ -34,14 +34,19 @@ export async function inspectElevation() {
   }
 }
 
-export async function ensureElevatedProcess({ argv, label, relaunchEnv = {} }) {
+export async function ensureElevatedProcess({
+  argv,
+  label,
+  relaunchEnv = {},
+  forceRelaunch = false,
+}) {
   if (os.platform() !== "win32" || process.env.SALAD_ELEVATED_RELAUNCH === "1") {
     return false;
   }
 
   const elevation = await inspectElevation();
 
-  if (elevation.isAdmin) {
+  if (elevation.isAdmin && !forceRelaunch) {
     return false;
   }
 
@@ -69,6 +74,8 @@ export async function relaunchElevatedNode({ argv, label, relaunchEnv = {} }) {
   ]
     .filter(Boolean)
     .join("; ");
+  const windowStyle = process.env.SALAD_ELEVATED_WINDOW ?? "Hidden";
+  const shellArgs = ["-NoProfile", "-Command", command];
 
   await execFileAsync(
     "powershell.exe",
@@ -80,9 +87,9 @@ export async function relaunchElevatedNode({ argv, label, relaunchEnv = {} }) {
         "-Verb RunAs",
         `-WorkingDirectory '${escapePowerShellSingleQuoted(cwd)}'`,
         "-FilePath powershell.exe",
-        "-WindowStyle Normal",
+        `-WindowStyle ${windowStyle}`,
         "-ArgumentList",
-        formatArgumentList(["-NoProfile", "-NoExit", "-Command", command]),
+        formatArgumentList(shellArgs),
       ].join(" "),
     ],
     { windowsHide: true },

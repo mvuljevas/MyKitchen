@@ -146,6 +146,11 @@ export const emptyDashboard = {
   logActivity: emptyLogActivitySummary,
   rig: emptyRig,
   optimizationPlan: null,
+  suite: {
+    managed: false,
+    pid: null,
+    elevatedRelaunch: false,
+  },
   workload: emptyStatus.workload,
   report: null,
   recentEvents: [],

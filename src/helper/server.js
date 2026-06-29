@@ -40,12 +40,14 @@ const workloadProcessHints = [
 ];
 const sseClients = new Set();
 let lastEventSignature = "";
+let shutdownHandler = null;
 const historyCache = new Map();
 
 if (
   await ensureElevatedProcess({
     argv: [fileURLToPath(import.meta.url), ...process.argv.slice(2)],
     label: "SaladChoppingHours elevated helper",
+    forceRelaunch: process.env.SALAD_FOREGROUND !== "1",
     relaunchEnv: {
       SALAD_HELPER_HOST: host,
       SALAD_HELPER_PORT: String(port),
@@ -88,6 +90,17 @@ const server = createServer(async (request, response) => {
   }
 });
 
+server.on("error", (error) => {
+  if (error?.code === "EADDRINUSE") {
+    process.stdout.write(
+      `SaladChoppingHours helper port ${host}:${port} is already in use; reusing the existing listener if it is healthy.\n`,
+    );
+    return;
+  }
+
+  throw error;
+});
+
 server.listen(port, host, () => {
   process.stdout.write(
     `SaladChoppingHours helper listening on http://${host}:${port}\n`,
@@ -122,8 +135,35 @@ async function routeRequest(request, response) {
         "/salad/events",
         "/salad/report",
         "/salad/elevate",
+        "/suite/status",
+        "/suite/shutdown",
       ],
     });
+    return;
+  }
+
+  if (url.pathname === "/suite/status") {
+    sendJson(response, 200, {
+      managed: Boolean(shutdownHandler),
+      pid: process.pid,
+      elevatedRelaunch: process.env.SALAD_ELEVATED_RELAUNCH === "1",
+    });
+    return;
+  }
+
+  if (url.pathname === "/suite/shutdown") {
+    sendJson(response, 200, {
+      stopping: Boolean(shutdownHandler),
+      message: shutdownHandler
+        ? "Stopping managed SaladChoppingHours suite."
+        : "No managed suite shutdown handler is registered.",
+    });
+
+    if (shutdownHandler) {
+      setTimeout(() => {
+        shutdownHandler();
+      }, 100);
+    }
     return;
   }
 
@@ -537,4 +577,8 @@ function sendJson(response, statusCode, payload) {
     "Cache-Control": "no-store",
   });
   response.end(JSON.stringify(payload, null, 2));
+}
+
+export function setSuiteShutdownHandler(handler) {
+  shutdownHandler = handler;
 }

@@ -5,6 +5,7 @@ if (
   await ensureElevatedProcess({
     argv: [fileURLToPath(import.meta.url), ...process.argv.slice(2)],
     label: "SaladChoppingHours elevated monitor",
+    forceRelaunch: process.env.SALAD_FOREGROUND !== "1",
   })
 ) {
   process.stdout.write("Requested elevated SaladChoppingHours monitor through Windows UAC.\n");

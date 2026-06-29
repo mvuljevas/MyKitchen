@@ -4,6 +4,7 @@ import {
   loadDashboardData,
   requestElevatedHelper,
   requestRigOptimizationPlan,
+  requestSuiteShutdown,
   subscribeToEvents,
 } from "./api/dashboard.js";
 import { emptyDashboard, starChefTargetHours } from "./data/emptyDashboard.js";
@@ -69,6 +70,19 @@ function App() {
       },
     ]);
     setIsOptimizing(false);
+  }
+
+  async function stopSuite() {
+    await requestSuiteShutdown();
+    setLiveEvents((events) => [
+      ...events,
+      {
+        observedAt: new Date().toISOString(),
+        source: "settings",
+        level: "info",
+        message: "Requested managed suite shutdown.",
+      },
+    ]);
   }
 
   useEffect(() => {
@@ -174,7 +188,12 @@ function App() {
       ) : null}
 
       {activeTab === "Settings" ? (
-        <Settings status={status} onElevate={elevateHelper} />
+        <Settings
+          status={status}
+          suite={dashboard.suite}
+          onElevate={elevateHelper}
+          onStopSuite={stopSuite}
+        />
       ) : null}
     </main>
   );
@@ -553,7 +572,7 @@ function Machines({ report, status }) {
   );
 }
 
-function Settings({ status, onElevate }) {
+function Settings({ status, suite, onElevate, onStopSuite }) {
   return (
     <section className="panel">
       <div className="panel-heading">
@@ -570,8 +589,30 @@ function Settings({ status, onElevate }) {
         Salad process paths, WSL details, service metadata, and hardware state
         stay visible. If this session is not elevated, request UAC relaunch.
       </p>
+      <div className="metric-grid compact">
+        <MetricCard
+          label="Managed suite"
+          value={suite.managed ? "Active" : "Unavailable"}
+          detail={suite.pid ? `PID ${suite.pid}` : "No shutdown handler registered"}
+          tone={suite.managed ? "positive" : "neutral"}
+        />
+        <MetricCard
+          label="Elevated relaunch"
+          value={suite.elevatedRelaunch ? "Yes" : "No"}
+          detail="Hidden process managed by the app"
+          tone={suite.elevatedRelaunch ? "positive" : "neutral"}
+        />
+      </div>
       <button className="primary-button" type="button" onClick={onElevate}>
         Relaunch helper as administrator
+      </button>
+      <button
+        className="secondary-button"
+        type="button"
+        onClick={onStopSuite}
+        disabled={!suite.managed}
+      >
+        Stop managed suite
       </button>
     </section>
   );

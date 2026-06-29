@@ -94,6 +94,10 @@ ports when the current process is not elevated. This keeps Salad process, WSL,
 service, and hardware observability in one administrator context while still
 binding the helper to localhost.
 
+The elevated suite runs hidden by default and is managed by the app through
+`GET /suite/status` and `GET /suite/shutdown`. `npm run suite` reuses an
+existing healthy helper/UI instead of starting a duplicate listener.
+
 ## Deferred Decisions
 
 - Whether to package the app as a desktop application.

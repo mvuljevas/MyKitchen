@@ -59,10 +59,13 @@ npm run suite
 This starts the Vite UI, the read-only helper, and the live monitor together.
 On Windows, the suite checks administrator status before opening ports. If the
 current terminal is not elevated, it requests a native UAC relaunch and runs the
-UI, helper, and monitor from the elevated process. Use `Ctrl+C` in the elevated
-terminal to stop all three.
+UI, helper, and monitor from a hidden elevated process managed by the app.
+If an existing healthy suite is already running, the command reuses it and opens
+the dashboard instead of crashing on occupied ports.
 The suite opens `http://127.0.0.1:5173/` in the default browser after Vite is
 ready. Set `SALAD_OPEN_BROWSER=0` to disable this for scripted runs.
+Use the Settings view to stop a managed hidden suite. Set `SALAD_FOREGROUND=1`
+when you explicitly want a visible terminal for debugging.
 
 ```bash
 npm run dev

@@ -97,6 +97,21 @@ h2 {
   white-space: nowrap;
 }
 
+.secondary-button {
+  min-height: 42px;
+  margin-left: 10px;
+  border: 1px solid #2c5a70;
+  padding: 0 16px;
+  background: #0d2c40;
+  color: #ecfff5;
+  white-space: nowrap;
+}
+
+.secondary-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
 .tabs {
   display: flex;
   gap: 22px;

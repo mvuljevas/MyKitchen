@@ -10,7 +10,7 @@ const helperBaseUrl = import.meta.env.VITE_HELPER_URL ?? "http://127.0.0.1:48173
 
 export async function loadDashboardData() {
   try {
-    const [health, status, logs, history, workload, report, rig] = await Promise.all([
+    const [health, status, logs, history, workload, report, rig, suite] = await Promise.all([
       fetchJson("/health"),
       fetchJson("/salad/status"),
       fetchJson("/salad/logs"),
@@ -18,6 +18,7 @@ export async function loadDashboardData() {
       fetchJson("/salad/workload/current"),
       fetchJson("/salad/report"),
       fetchJson("/salad/rig/config"),
+      fetchOptionalJson("/suite/status"),
     ]);
 
     const choppingSummary = normalizeChoppingSummary(history);
@@ -32,6 +33,7 @@ export async function loadDashboardData() {
       choppingSummary,
       logActivity: normalizeLogActivity(history.logActivity),
       rig: normalizeRig(rig),
+      suite: suite ?? emptyDashboard.suite,
       report,
       recentEvents: buildRecentEvents(status, logs.logs ?? [], choppingSummary),
       logs: logs.logs ?? [],
@@ -69,6 +71,10 @@ export async function requestRigOptimizationPlan() {
   return fetchJson("/salad/rig/optimize");
 }
 
+export async function requestSuiteShutdown() {
+  return fetchJson("/suite/shutdown");
+}
+
 async function fetchJson(path) {
   const response = await fetch(`${helperBaseUrl}${path}`, {
     headers: {
@@ -81,6 +87,14 @@ async function fetchJson(path) {
   }
 
   return response.json();
+}
+
+async function fetchOptionalJson(path) {
+  try {
+    return await fetchJson(path);
+  } catch {
+    return null;
+  }
 }
 
 function normalizeLogActivity(logActivity) {

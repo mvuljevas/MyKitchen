@@ -7,13 +7,14 @@ This file is the compact project summary for agents working in this repository.
 - Name: SaladChoppingHours.
 - Purpose: local web application for automatically calculating Salad Chopping
   hours and Star Chef qualification signals from a Salad installation folder.
-- Current version: 0.8.2.
+- Current version: 0.8.3.
 - Current phase: dashboard connected to a narrow read-only local helper with
   Chopping-hour history, Windows/WSL observability, live monitor, machine report
   export, one-command local suite orchestration, explicit empty offline states,
   a terminal-style live monitor, all-readable-log scan coverage, rig
   hardware/runtime readiness inspection, Windows elevated-suite relaunch, and
-  automatic browser opening for the local suite.
+  automatic browser opening for the local suite, and app-managed hidden suite
+  execution.
 
 ## Stack
 
@@ -134,6 +135,9 @@ git diff --check
   through UAC when not already elevated.
 - `npm run suite` opens `http://127.0.0.1:5173/` in the default browser unless
   `SALAD_OPEN_BROWSER=0` is set.
+- The elevated suite runs hidden by default, reuses an existing healthy helper
+  or suite, and exposes `/suite/status` plus `/suite/shutdown` for app-managed
+  lifecycle control.
 - Keep lifetime Salad totals separate from local 7-day computed history.
 - Show last-24-hours, rolling-7-days, and estimated Star Chef progress as
   separate values.
