@@ -334,3 +334,44 @@ Next suggested step:
 
 - Validate the rolling 7-day total against a real Salad machine with known
   recent Chopping sessions.
+
+## 2026-06-28 - Block 010: Full Log Scan Coverage
+
+Branch:
+
+- `main`
+
+Current state:
+
+- The helper root endpoint now returns a JSON endpoint map instead of `Not
+  found`.
+- Chopping history now attempts to scan every readable Salad `.log` file instead
+  of pre-filtering to known miner folders.
+- Coverage distinguishes logs found, logs scanned, logs with recognized
+  activity signals, and unreadable logs.
+- The dashboard shows inferred rig log activity from all Salad log timestamps
+  separately from confirmed Chopping/Star Chef progress.
+- The dashboard explains unreadable logs with sample error reasons when present.
+- Version moved to `0.7.1`.
+
+Decisions:
+
+- Keep Chopping-hour calculation tied to recognized activity signals, but scan
+  all readable logs so new Salad log locations can contribute without changing
+  the discovery filter first.
+- Treat log timestamp activity as inferred rig activity only, not confirmed Star
+  Chef progress.
+- Preserve explicit coverage gaps rather than silently treating unreadable logs
+  as zero activity.
+
+Risks:
+
+- Very large real-world logs may require streaming parsing if full-file reads
+  become too slow or memory-heavy.
+- Non-mining workload logs still need additional signal patterns before they can
+  contribute confirmed Chopping intervals.
+
+Next suggested step:
+
+- Add parser signal patterns from SaladBowl or WSL job lifecycle logs once real
+  examples are identified.

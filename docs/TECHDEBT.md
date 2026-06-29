@@ -119,8 +119,9 @@ Status: open.
 
 Context:
 
-- The first parser derives Chopping intervals from miner log lines containing
-  `Mining at` and closes intervals when signal gaps exceed two minutes.
+- The parser scans every readable Salad `.log` file, derives Chopping intervals
+  from lines containing `Mining at`, and closes intervals when signal gaps
+  exceed two minutes.
 
 Impact:
 
@@ -132,6 +133,25 @@ Resolution path:
 
 - Compare calculated intervals against known Salad sessions and refine parser
   boundaries with additional log sources when needed.
+
+## TD-009: Rig Activity Is Metadata-Inferred
+
+Status: open.
+
+Context:
+
+- The dashboard now shows rig log activity inferred from all Salad log
+  modification timestamps.
+
+Impact:
+
+- This improves visibility into local rig/app activity, but it is not the same
+  as confirmed Chopping or Star Chef credit.
+
+Resolution path:
+
+- Replace or refine inferred activity when SaladBowl, NDM, or WSL lifecycle log
+  patterns are validated as reliable Chopping start/stop signals.
 
 ## TD-008: Multi-PC Totals Need Import Workflow
 

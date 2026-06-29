@@ -2,7 +2,9 @@ const timestampPattern =
   /^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})\.(\d{3}) ([+-]\d{2}):(\d{2})/;
 const miningSignalPattern = /\bMining at\b/i;
 const defaultSignalDurationSeconds = 30;
+const defaultLogActivityDurationSeconds = 60;
 const maxSignalGapSeconds = 120;
+const maxLogActivityGapSeconds = 15 * 60;
 const starChefTargetHours = 50;
 
 export function calculateChoppingSummary(logWindows, now = new Date(), days = 7) {
@@ -18,6 +20,7 @@ export function calculateChoppingSummary(logWindows, now = new Date(), days = 7)
     source: signals.length > 0 ? "logs" : "none",
     confidence: signals.length > 0 ? "confirmed" : "low-confidence",
     signalCount: signals.length,
+    sourceLogCount: new Set(signals.map((signal) => signal.source)).size,
     intervalCount: intervals.length,
     totalHours: roundHours(totalHours),
     last24Hours: roundHours(last24Hours),
@@ -37,6 +40,49 @@ export function calculateChoppingSummary(logWindows, now = new Date(), days = 7)
     })),
     history,
     lastSignalAt: signals.at(-1)?.timestamp.toISOString() ?? null,
+  };
+}
+
+export function calculateLogActivitySummary(logs, now = new Date(), days = 7) {
+  const events = logs
+    .map((log) => ({
+      timestamp: new Date(log.modifiedAt),
+      source: log.relativePath,
+    }))
+    .filter((event) => !Number.isNaN(event.timestamp.getTime()))
+    .sort((left, right) => left.timestamp - right.timestamp)
+    .filter((event, index, list) => {
+      const previous = list[index - 1];
+      return !previous || previous.timestamp.getTime() !== event.timestamp.getTime();
+    });
+  const intervals = buildIntervalsFromEvents(events, {
+    sampleSeconds: defaultLogActivityDurationSeconds,
+    maxGapSeconds: maxLogActivityGapSeconds,
+    confidence: "inferred",
+  });
+  const history = buildHistory(intervals, now, days);
+  const rolling7DaysHours = calculateWindowHours(intervals, addDays(now, -7), now);
+  const last24Hours = calculateWindowHours(intervals, addHours(now, -24), now);
+
+  return {
+    source: events.length > 0 ? "log-metadata" : "none",
+    confidence: events.length > 0 ? "inferred" : "low-confidence",
+    eventCount: events.length,
+    sourceLogCount: new Set(events.map((event) => event.source)).size,
+    intervalCount: intervals.length,
+    totalHours: roundHours(history.reduce((total, item) => total + item.hours, 0)),
+    last24Hours: roundHours(last24Hours),
+    rolling7DaysHours: roundHours(rolling7DaysHours),
+    lastSignalAt: events.at(-1)?.timestamp.toISOString() ?? null,
+    intervals: intervals.map((interval) => ({
+      start: interval.start.toISOString(),
+      end: interval.end.toISOString(),
+      hours: roundHours((interval.end - interval.start) / 3600000),
+      confidence: interval.confidence,
+    })),
+    history,
+    note:
+      "Inferred from timestamps of all readable Salad log files. This reflects local rig/app activity, not confirmed Chopping by itself.",
   };
 }
 
@@ -71,26 +117,34 @@ function collectMiningSignals(logWindows) {
 }
 
 function buildIntervals(signals) {
-  if (signals.length === 0) {
+  return buildIntervalsFromEvents(signals, {
+    sampleSeconds: defaultSignalDurationSeconds,
+    maxGapSeconds: maxSignalGapSeconds,
+    confidence: "confirmed",
+  });
+}
+
+function buildIntervalsFromEvents(events, { sampleSeconds, maxGapSeconds, confidence }) {
+  if (events.length === 0) {
     return [];
   }
 
   const intervals = [];
-  let start = signals[0].timestamp;
-  let end = addSeconds(signals[0].timestamp, defaultSignalDurationSeconds);
+  let start = events[0].timestamp;
+  let end = addSeconds(events[0].timestamp, sampleSeconds);
 
-  for (const signal of signals.slice(1)) {
-    const gapSeconds = (signal.timestamp - end) / 1000;
+  for (const event of events.slice(1)) {
+    const gapSeconds = (event.timestamp - end) / 1000;
 
-    if (gapSeconds > maxSignalGapSeconds) {
-      intervals.push({ start, end, confidence: "confirmed" });
-      start = signal.timestamp;
+    if (gapSeconds > maxGapSeconds) {
+      intervals.push({ start, end, confidence });
+      start = event.timestamp;
     }
 
-    end = addSeconds(signal.timestamp, defaultSignalDurationSeconds);
+    end = addSeconds(event.timestamp, sampleSeconds);
   }
 
-  intervals.push({ start, end, confidence: "confirmed" });
+  intervals.push({ start, end, confidence });
   return intervals;
 }
 

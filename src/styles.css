@@ -323,6 +323,47 @@ h2 {
   overflow-wrap: anywhere;
 }
 
+.log-errors {
+  margin-top: 20px;
+  border-top: 1px solid #17394d;
+  padding-top: 18px;
+}
+
+.log-errors h3 {
+  margin: 0 0 12px;
+  color: #f4fff8;
+  font-size: 16px;
+}
+
+.log-errors ul {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.log-errors li {
+  display: grid;
+  gap: 4px;
+  border-radius: 6px;
+  background: #071724;
+  padding: 10px 12px;
+}
+
+.log-errors strong,
+.log-errors span {
+  overflow-wrap: anywhere;
+}
+
+.log-errors strong {
+  color: #f4fff8;
+}
+
+.log-errors span {
+  color: #ffcf70;
+}
+
 .terminal-panel {
   min-height: 620px;
 }
@@ -375,7 +416,8 @@ h2 {
 }
 
 .terminal-line.parser .terminal-type,
-.terminal-line.logs .terminal-type {
+.terminal-line.logs .terminal-type,
+.terminal-line.rig .terminal-type {
   color: #facc15;
 }
 

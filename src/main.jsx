@@ -15,8 +15,16 @@ function App() {
   const [activeTab, setActiveTab] = useState("Overview");
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [liveEvents, setLiveEvents] = useState([]);
-  const { choppingHistory, choppingSummary, status, workload, source, logs, error } =
-    dashboard;
+  const {
+    choppingHistory,
+    choppingSummary,
+    logActivity,
+    status,
+    workload,
+    source,
+    logs,
+    error,
+  } = dashboard;
   const starChef = choppingSummary.starChefEstimate;
   const coverage = choppingSummary.coverage ?? {};
   const machineLabel = `${status.machine?.hostname ?? "This PC"} · ${status.machine?.id ?? "unknown"}`;
@@ -111,6 +119,7 @@ function App() {
           starChef={starChef}
           status={status}
           summary={choppingSummary}
+          logActivity={logActivity}
           workload={workload}
         />
       ) : null}
@@ -120,7 +129,12 @@ function App() {
       ) : null}
 
       {activeTab === "Coverage" ? (
-        <Coverage coverage={coverage} logs={logs} summary={choppingSummary} />
+        <Coverage
+          coverage={coverage}
+          logs={logs}
+          logActivity={logActivity}
+          summary={choppingSummary}
+        />
       ) : null}
 
       {activeTab === "Machines" ? (
@@ -134,7 +148,16 @@ function App() {
   );
 }
 
-function Overview({ coverage, history, machineLabel, starChef, status, summary, workload }) {
+function Overview({
+  coverage,
+  history,
+  logActivity,
+  machineLabel,
+  starChef,
+  status,
+  summary,
+  workload,
+}) {
   return (
     <>
       <section className="metric-grid" aria-label="Current Salad status">
@@ -155,6 +178,12 @@ function Overview({ coverage, history, machineLabel, starChef, status, summary, 
           value={`${starChef.progress}%`}
           detail={`${starChef.remainingHours.toFixed(1)}h remaining to ${starChefTargetHours}h`}
           tone={starChef.progress >= 100 ? "positive" : "neutral"}
+        />
+        <MetricCard
+          label="Rig log activity"
+          value={`${logActivity.rolling7DaysHours.toFixed(1)}h`}
+          detail="Inferred from all Salad log timestamps"
+          tone="neutral"
         />
         <MetricCard
           label="Current workload"
@@ -183,14 +212,22 @@ function Overview({ coverage, history, machineLabel, starChef, status, summary, 
             <span style={{ width: `${Math.min(starChef.progress, 100)}%` }} />
           </div>
           <p className="body-copy">{starChef.note}</p>
+          <p className="body-copy">
+            Rig log activity is shown separately because log writes prove local
+            Salad activity, while Star Chef progress uses confirmed Chopping
+            signals.
+          </p>
           <dl className="definition-list">
             <div>
               <dt>Machine</dt>
               <dd>{machineLabel}</dd>
             </div>
             <div>
-              <dt>Logs parsed</dt>
-              <dd>{coverage.parsedLogCount ?? 0}</dd>
+              <dt>Logs scanned</dt>
+              <dd>
+                {coverage.scannedLogCount ?? coverage.parsedLogCount ?? 0} of{" "}
+                {coverage.logCount ?? 0}
+              </dd>
             </div>
             <div>
               <dt>Last signal</dt>
@@ -259,7 +296,7 @@ function TerminalLine({ event }) {
   );
 }
 
-function Coverage({ coverage, logs, summary }) {
+function Coverage({ coverage, logs, logActivity, summary }) {
   return (
     <section className="panel">
       <div className="panel-heading">
@@ -270,12 +307,54 @@ function Coverage({ coverage, logs, summary }) {
         <StatusBadge tone={summary.confidence}>{summary.confidence}</StatusBadge>
       </div>
       <div className="metric-grid compact">
-        <MetricCard label="Log files" value={String(coverage.logCount ?? logs.length)} />
-        <MetricCard label="Parsed miner logs" value={String(coverage.parsedLogCount ?? 0)} />
+        <MetricCard label="Logs found" value={String(coverage.logCount ?? logs.length)} />
+        <MetricCard
+          label="Logs scanned"
+          value={String(coverage.scannedLogCount ?? coverage.parsedLogCount ?? 0)}
+          detail="Readable logs included in parser pass"
+        />
+        <MetricCard
+          label="Logs with signals"
+          value={String(coverage.signalLogCount ?? summary.sourceLogCount ?? 0)}
+          detail={`${summary.signalCount} activity signals`}
+        />
+        <MetricCard
+          label="Unreadable logs"
+          value={String(coverage.unreadableLogCount ?? 0)}
+          detail="Usually permissions or file locks"
+        />
+      </div>
+      <div className="metric-grid compact">
         <MetricCard label="Newest log" value={formatDateTime(coverage.newestLogAt)} />
         <MetricCard label="Oldest log" value={formatDateTime(coverage.oldestLogAt)} />
+        <MetricCard label="Intervals" value={String(summary.intervalCount)} />
+        <MetricCard label="Confidence" value={summary.confidence} />
+        <MetricCard
+          label="Rig activity intervals"
+          value={String(logActivity.intervalCount)}
+          detail={logActivity.confidence}
+        />
+        <MetricCard
+          label="Rig activity 7 days"
+          value={`${logActivity.rolling7DaysHours.toFixed(1)}h`}
+          detail="Inferred, not Star Chef credit"
+        />
       </div>
       <p className="body-copy">{coverage.retentionNote}</p>
+      <p className="body-copy">{logActivity.note}</p>
+      {coverage.readErrorSamples?.length > 0 ? (
+        <div className="log-errors">
+          <h3>Unreadable log samples</h3>
+          <ul>
+            {coverage.readErrorSamples.map((error) => (
+              <li key={error.relativePath}>
+                <strong>{error.relativePath}</strong>
+                <span>{error.error}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
     </section>
   );
 }
@@ -418,7 +497,7 @@ function formatEventMessage(event) {
   }
 
   if (event.parser) {
-    return `${event.parser.totalHours.toFixed(2)}h · ${event.parser.signalCount} signals · ${event.workload?.label ?? "unknown workload"}`;
+    return `${event.parser.totalHours.toFixed(2)}h confirmed · ${event.parser.signalCount} signals · ${event.logActivity?.rolling7DaysHours?.toFixed?.(2) ?? "0.00"}h rig activity · ${event.workload?.label ?? "unknown workload"}`;
   }
 
   return "Observation received";

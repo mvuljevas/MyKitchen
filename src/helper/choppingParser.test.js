@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { calculateChoppingSummary } from "./choppingParser.js";
+import {
+  calculateChoppingSummary,
+  calculateLogActivitySummary,
+} from "./choppingParser.js";
 
 test("calculates one continuous mining interval", () => {
   const summary = calculateChoppingSummary(
@@ -18,11 +21,35 @@ test("calculates one continuous mining interval", () => {
   );
 
   assert.equal(summary.signalCount, 3);
+  assert.equal(summary.sourceLogCount, 1);
   assert.equal(summary.intervalCount, 1);
   assert.equal(summary.history.find((day) => day.isoDate === "2026-06-27").hours, 0.03);
   assert.equal(summary.confidence, "confirmed");
   assert.equal(summary.last24Hours, 0);
   assert.equal(summary.starChefEstimate.targetHours, 50);
+});
+
+test("ignores readable logs that do not contain activity signals", () => {
+  const summary = calculateChoppingSummary(
+    [
+      {
+        relativePath: "logs\\SaladBowl\\service.log",
+        lines: [
+          "2026-06-27 09:59:00.000 -03:00 [INF] Service heartbeat",
+          "2026-06-27 09:59:30.000 -03:00 [INF] No workload assigned",
+        ],
+      },
+      {
+        relativePath: "logs\\T-Rex\\fixture.log",
+        lines: ["2026-06-27 10:00:00.000 -03:00 [INF] Mining at pool"],
+      },
+    ],
+    new Date("2026-06-28T12:00:00-03:00"),
+  );
+
+  assert.equal(summary.signalCount, 1);
+  assert.equal(summary.sourceLogCount, 1);
+  assert.equal(summary.intervalCount, 1);
 });
 
 test("splits intervals when mining signals have a large gap", () => {
@@ -80,4 +107,30 @@ test("deduplicates duplicate mining timestamps", () => {
 
   assert.equal(summary.signalCount, 1);
   assert.equal(summary.intervalCount, 1);
+});
+
+test("infers rig activity from all log modification timestamps", () => {
+  const summary = calculateLogActivitySummary(
+    [
+      {
+        relativePath: "logs\\ndm\\first.log",
+        modifiedAt: "2026-06-27T10:00:00.000-03:00",
+      },
+      {
+        relativePath: "logs\\systeminformation\\second.log",
+        modifiedAt: "2026-06-27T10:05:00.000-03:00",
+      },
+      {
+        relativePath: "logs\\ndm\\third.log",
+        modifiedAt: "2026-06-27T11:00:00.000-03:00",
+      },
+    ],
+    new Date("2026-06-28T12:00:00-03:00"),
+  );
+
+  assert.equal(summary.confidence, "inferred");
+  assert.equal(summary.eventCount, 3);
+  assert.equal(summary.sourceLogCount, 3);
+  assert.equal(summary.intervalCount, 2);
+  assert.equal(summary.rolling7DaysHours, 0.12);
 });

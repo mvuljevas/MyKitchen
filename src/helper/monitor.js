@@ -23,6 +23,7 @@ async function poll() {
       workload: workload.type,
       lastSignalAt: history.lastSignalAt,
       totalHours: history.totalHours,
+      logActivity: history.logActivity?.rolling7DaysHours,
     });
 
     if (signature !== previousSignature) {
@@ -33,6 +34,10 @@ async function poll() {
       printEvent(
         "parser",
         `${history.totalHours?.toFixed?.(2) ?? "0.00"}h / ${history.signalCount ?? 0} signals / ${history.intervalCount ?? 0} intervals`,
+      );
+      printEvent(
+        "rig",
+        `${history.logActivity?.rolling7DaysHours?.toFixed?.(2) ?? "0.00"}h inferred / ${history.logActivity?.eventCount ?? 0} log events / ${history.logActivity?.intervalCount ?? 0} intervals`,
       );
     }
   } catch (error) {

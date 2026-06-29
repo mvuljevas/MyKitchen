@@ -7,11 +7,11 @@ This file is the compact project summary for agents working in this repository.
 - Name: SaladChoppingHours.
 - Purpose: local web application for automatically calculating Salad Chopping
   hours and Star Chef qualification signals from a Salad installation folder.
-- Current version: 0.7.0.
+- Current version: 0.7.1.
 - Current phase: dashboard connected to a narrow read-only local helper with
   Chopping-hour history, Windows/WSL observability, live monitor, machine report
   export, one-command local suite orchestration, explicit empty offline states,
-  and a terminal-style live monitor.
+  a terminal-style live monitor, and all-readable-log scan coverage.
 
 ## Stack
 
@@ -119,6 +119,10 @@ git diff --check
 - Use the local helper for process status and log metadata.
 - Calculate Chopping-hour history from miner log `Mining at` signals when the
   helper is running.
+- Scan every readable Salad `.log` file for activity signals and expose
+  coverage counts for found, scanned, signal-bearing, and unreadable logs.
+- Expose inferred rig log activity from all Salad log modification timestamps,
+  separately from confirmed Chopping intervals.
 - Keep lifetime Salad totals separate from local 7-day computed history.
 - Show last-24-hours, rolling-7-days, and estimated Star Chef progress as
   separate values.

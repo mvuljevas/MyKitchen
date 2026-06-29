@@ -1,6 +1,7 @@
 import {
   emptyChoppingSummary,
   emptyDashboard,
+  emptyLogActivitySummary,
   emptyStatus,
 } from "../data/emptyDashboard.js";
 
@@ -27,6 +28,7 @@ export async function loadDashboardData() {
       workload,
       choppingHistory: history.history ?? [],
       choppingSummary,
+      logActivity: normalizeLogActivity(history.logActivity),
       report,
       recentEvents: buildRecentEvents(status, logs.logs ?? [], choppingSummary),
       logs: logs.logs ?? [],
@@ -72,6 +74,15 @@ async function fetchJson(path) {
   }
 
   return response.json();
+}
+
+function normalizeLogActivity(logActivity) {
+  return {
+    ...emptyLogActivitySummary,
+    ...(logActivity ?? {}),
+    intervals: logActivity?.intervals ?? emptyLogActivitySummary.intervals,
+    history: logActivity?.history ?? emptyLogActivitySummary.history,
+  };
 }
 
 function normalizeChoppingSummary(history) {

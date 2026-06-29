@@ -45,6 +45,7 @@ export const emptyChoppingSummary = {
   source: "none",
   confidence: "low-confidence",
   signalCount: 0,
+  sourceLogCount: 0,
   intervalCount: 0,
   totalHours: 0,
   last24Hours: 0,
@@ -53,6 +54,10 @@ export const emptyChoppingSummary = {
   coverage: {
     logCount: 0,
     parsedLogCount: 0,
+    scannedLogCount: 0,
+    signalLogCount: 0,
+    unreadableLogCount: 0,
+    readErrorSamples: [],
     newestLogAt: null,
     oldestLogAt: null,
     retentionNote: "Start the local helper to read Salad logs.",
@@ -68,12 +73,29 @@ export const emptyChoppingSummary = {
   history: [],
 };
 
+export const emptyLogActivitySummary = {
+  source: "none",
+  confidence: "low-confidence",
+  eventCount: 0,
+  sourceLogCount: 0,
+  intervalCount: 0,
+  totalHours: 0,
+  last24Hours: 0,
+  rolling7DaysHours: 0,
+  lastSignalAt: null,
+  intervals: [],
+  history: [],
+  note:
+    "Start the local helper to infer local rig/app activity from Salad log metadata.",
+};
+
 export const emptyDashboard = {
   source: "offline",
   helperOnline: false,
   status: emptyStatus,
   choppingHistory: [],
   choppingSummary: emptyChoppingSummary,
+  logActivity: emptyLogActivitySummary,
   workload: emptyStatus.workload,
   report: null,
   recentEvents: [],

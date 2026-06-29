@@ -1,14 +1,12 @@
-import { execFile } from "node:child_process";
 import { createServer } from "node:http";
 import { access, readdir, readFile, stat } from "node:fs/promises";
-import os from "node:os";
 import path from "node:path";
-import { promisify } from "node:util";
-import { calculateChoppingSummary } from "./choppingParser.js";
+import {
+  calculateChoppingSummary,
+  calculateLogActivitySummary,
+} from "./choppingParser.js";
 import { inspectSystem, requestElevatedHelper } from "./systemProbe.js";
-import { classifyWorkload, isMinerPath } from "./workloadClassifier.js";
-
-const execFileAsync = promisify(execFile);
+import { classifyWorkload } from "./workloadClassifier.js";
 
 const host = process.env.SALAD_HELPER_HOST ?? "127.0.0.1";
 const port = Number.parseInt(process.env.SALAD_HELPER_PORT ?? "48173", 10);
@@ -16,9 +14,9 @@ const installPath = path.resolve(
   process.env.SALAD_INSTALL_PATH ?? "C:\\ProgramData\\Salad",
 );
 const maxLogBytes = 64 * 1024;
-const maxParserLogBytes = 8 * 1024 * 1024;
-const maxLogFiles = 500;
+const maxLogFiles = 5000;
 const maxScanDepth = 5;
+const historyCacheMs = 2000;
 const allowedOrigins = new Set([
   "http://127.0.0.1:5173",
   "http://localhost:5173",
@@ -39,6 +37,7 @@ const workloadProcessHints = [
 ];
 const sseClients = new Set();
 let lastEventSignature = "";
+const historyCache = new Map();
 
 const server = createServer(async (request, response) => {
   const origin = request.headers.origin;
@@ -85,6 +84,25 @@ async function routeRequest(request, response) {
       ok: true,
       service: "salad-chopping-hours-helper",
       installPath,
+    });
+    return;
+  }
+
+  if (url.pathname === "/") {
+    sendJson(response, 200, {
+      ok: true,
+      service: "salad-chopping-hours-helper",
+      installPath,
+      endpoints: [
+        "/health",
+        "/salad/status",
+        "/salad/logs",
+        "/salad/chopping-history?days=7",
+        "/salad/workload/current",
+        "/salad/events",
+        "/salad/report",
+        "/salad/elevate",
+      ],
     });
     return;
   }
@@ -173,40 +191,74 @@ async function getCurrentWorkload() {
 }
 
 async function getChoppingHistory({ days = 7 } = {}) {
-  const logs = await listLogFiles();
-  const minerLogs = logs.filter((log) => isMinerLog(log.relativePath));
-  const logWindows = [];
+  const cacheKey = String(days);
+  const cached = historyCache.get(cacheKey);
 
-  for (const log of minerLogs) {
+  if (cached && Date.now() - cached.startedAt <= historyCacheMs) {
+    return cached.promise;
+  }
+
+  const promise = calculateChoppingHistoryFromLogs({ days }).finally(() => {
+    const latest = historyCache.get(cacheKey);
+
+    if (latest?.promise === promise && Date.now() - latest.startedAt > historyCacheMs) {
+      historyCache.delete(cacheKey);
+    }
+  });
+
+  historyCache.set(cacheKey, {
+    startedAt: Date.now(),
+    promise,
+  });
+
+  return promise;
+}
+
+async function calculateChoppingHistoryFromLogs({ days }) {
+  const logs = await listLogFiles();
+  const logWindows = [];
+  const readErrors = [];
+
+  for (const log of logs) {
     const relativePath = decodeLogId(log.id);
     const targetPath = path.resolve(installPath, relativePath);
 
     if (!isPathInside(installPath, targetPath)) {
+      readErrors.push({
+        relativePath,
+        error: "Log path is not allowed",
+      });
       continue;
     }
 
-    const entryStats = await stat(targetPath);
+    try {
+      const content = await readFile(targetPath, "utf8");
 
-    if (entryStats.size > maxParserLogBytes) {
-      continue;
+      logWindows.push({
+        relativePath,
+        lines: content.split(/\r?\n/),
+      });
+    } catch (error) {
+      readErrors.push({
+        relativePath,
+        error: error instanceof Error ? error.message : "Unable to read log",
+      });
     }
-
-    const content = await readFile(targetPath, "utf8");
-
-    logWindows.push({
-      relativePath,
-      lines: content.split(/\r?\n/),
-    });
   }
+
+  const summary = calculateChoppingSummary(logWindows, new Date(), days);
+  const logActivity = calculateLogActivitySummary(logs, new Date(), days);
 
   return {
     machineId: (await inspectSystem()).machine.id,
     installPath,
     days,
     parsedLogs: logWindows.length,
-    skippedLogs: minerLogs.length - logWindows.length,
-    coverage: buildCoverage(logs, logWindows),
-    ...calculateChoppingSummary(logWindows, new Date(), days),
+    skippedLogs: readErrors.length,
+    readErrors,
+    coverage: buildCoverage(logs, logWindows, summary, readErrors),
+    logActivity,
+    ...summary,
   };
 }
 
@@ -260,28 +312,6 @@ async function getSaladStatus() {
     },
     lastLogRead: logs[0]?.modifiedAt ?? null,
   };
-}
-
-async function listProcesses() {
-  if (os.platform() !== "win32") {
-    return [];
-  }
-
-  try {
-    const { stdout } = await execFileAsync("tasklist", ["/FO", "CSV", "/NH"], {
-      windowsHide: true,
-      maxBuffer: 1024 * 1024,
-    });
-
-    return stdout
-      .split(/\r?\n/)
-      .map((line) => line.trim())
-      .filter(Boolean)
-      .map((line) => line.match(/^"([^"]+)"/)?.[1])
-      .filter(Boolean);
-  } catch {
-    return [];
-  }
 }
 
 async function listLogFiles() {
@@ -400,18 +430,18 @@ function decodeLogId(id) {
   return Buffer.from(id, "base64url").toString("utf8");
 }
 
-function isMinerLog(relativePath) {
-  return isMinerPath(relativePath);
-}
-
-function buildCoverage(logs, logWindows) {
+function buildCoverage(logs, logWindows, summary, readErrors) {
   return {
     logCount: logs.length,
     parsedLogCount: logWindows.length,
+    scannedLogCount: logWindows.length,
+    signalLogCount: summary.sourceLogCount,
+    unreadableLogCount: readErrors.length,
+    readErrorSamples: readErrors.slice(0, 5),
     newestLogAt: logs[0]?.modifiedAt ?? null,
     oldestLogAt: logs.at(-1)?.modifiedAt ?? null,
     retentionNote:
-      "Salad job logs are local and may be retained for a limited window; combine reports from each PC for multi-machine totals.",
+      "All discovered .log files are scanned when readable. Chopping hours are calculated only from logs that contain recognized activity signals.",
   };
 }
 
@@ -452,6 +482,7 @@ async function publishObservationEvent() {
       intervalCount: history.intervalCount,
       lastSignalAt: history.lastSignalAt,
     },
+    logActivity: history.logActivity,
   };
   const signature = JSON.stringify(payload);
 
