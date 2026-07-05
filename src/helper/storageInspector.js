@@ -35,6 +35,7 @@ export async function inspectSaladStorage(installPath) {
   }
 
   const files = await listLargestFiles(installPath, 30);
+  const workloadStorage = await inspectWorkloadStorage(installPath);
   const candidates = await buildPurgeCandidates(installPath);
   const wslVhd = files.find((file) => file.path.toLowerCase().endsWith("wsl\\ext4.vhdx"));
 
@@ -52,12 +53,55 @@ export async function inspectSaladStorage(installPath) {
     },
     categories: categories.sort((left, right) => right.sizeBytes - left.sizeBytes),
     largestFiles: files,
+    workloadStorage,
     purge: summarizeCandidates(candidates),
     notes: [
       "Logs are protected by default and are never deleted unless includeLogs=true and confirm=DELETE_LOGS are both provided.",
       "Safe mode only removes re-downloadable cache folders such as workloads/_downloads.",
       "Obsolete mode adds stale re-downloadable workload folders. WSL VHD deletion is only included by all mode with explicit confirmation.",
     ],
+  };
+}
+
+async function inspectWorkloadStorage(installPath) {
+  const workloadsPath = path.join(installPath, "workloads");
+  const downloadsPath = path.join(workloadsPath, "_downloads");
+  const downloadsBytes = await getPathSize(downloadsPath);
+  let currentBytes = 0;
+  let obsoleteBytes = 0;
+  let packageCount = 0;
+  let obsoletePackageCount = 0;
+
+  for (const entry of await safeReaddir(workloadsPath)) {
+    if (!entry.isDirectory() || entry.name === "_downloads") {
+      continue;
+    }
+
+    const entryPath = path.join(workloadsPath, entry.name);
+    const entryStats = await statOrNull(entryPath);
+    const sizeBytes = await getPathSize(entryPath);
+    const ageDays = entryStats ? (Date.now() - entryStats.mtime.getTime()) / 86400000 : 0;
+    packageCount += 1;
+
+    if (ageDays >= 3) {
+      obsoleteBytes += sizeBytes;
+      obsoletePackageCount += 1;
+    } else {
+      currentBytes += sizeBytes;
+    }
+  }
+
+  return {
+    path: workloadsPath,
+    downloadsBytes,
+    downloadsGb: roundGb(downloadsBytes),
+    currentBytes,
+    currentGb: roundGb(currentBytes),
+    obsoleteBytes,
+    obsoleteGb: roundGb(obsoleteBytes),
+    packageCount,
+    obsoletePackageCount,
+    rule: "Workload package folders older than 3 days are treated as obsolete re-downloadable candidates.",
   };
 }
 
@@ -210,6 +254,16 @@ async function addCandidate(candidates, targetPath, metadata) {
   });
 }
 
+async function getPathSize(targetPath) {
+  const targetStats = await statOrNull(targetPath);
+
+  if (!targetStats) {
+    return 0;
+  }
+
+  return targetStats.isDirectory() ? getDirectorySize(targetPath) : targetStats.size;
+}
+
 function summarizeCandidates(candidates) {
   return {
     safeBytes: sumMode(candidates, "safe"),
@@ -360,6 +414,18 @@ function emptyStorage(installPath, note) {
     },
     categories: [],
     largestFiles: [],
+    workloadStorage: {
+      path: path.join(installPath, "workloads"),
+      downloadsBytes: 0,
+      downloadsGb: 0,
+      currentBytes: 0,
+      currentGb: 0,
+      obsoleteBytes: 0,
+      obsoleteGb: 0,
+      packageCount: 0,
+      obsoletePackageCount: 0,
+      rule: "Start the helper to inspect Salad workload storage.",
+    },
     purge: {
       safeBytes: 0,
       safeGb: 0,

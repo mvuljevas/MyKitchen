@@ -579,3 +579,38 @@ Next suggested step:
 
 - Block non-dry-run full WSL cleanup automatically when Salad or
   `salad-enterprise-linux` is running.
+
+## 2026-07-05 - Block 017: In-App Storage Behavior Docs
+
+Branch:
+
+- `main`
+
+Current state:
+
+- Added a Docs tab to the app with local Salad storage findings for this rig.
+- The Docs tab links to the original Salad container troubleshooting, Salad
+  Chopping Power, and Microsoft WSL disk space references.
+- The Docs tab explains why Salad's WSL `ext4.vhdx` can grow and why host disk
+  space may not immediately return after data is removed inside WSL.
+- Storage inspection now splits workload storage into downloads/cache, recent
+  workload packages, and obsolete workload packages.
+- Full cache/WSL purge is documented as rebuildable/re-downloadable runtime
+  cleanup that should only happen while Salad and `salad-enterprise-linux` are
+  stopped.
+- Version moved to `0.9.1`.
+
+Decisions:
+
+- Keep operational cleanup controls in Settings and explanatory behavior docs
+  in a separate Docs tab.
+
+Risks:
+
+- Current full purge still relies on explicit user confirmation rather than
+  automatically blocking active Salad/WSL runtime state.
+
+Next suggested step:
+
+- Add runtime blocking for non-dry-run full cache/WSL purge when Salad or WSL
+  activity is detected.

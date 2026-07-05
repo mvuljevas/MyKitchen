@@ -15,6 +15,9 @@ test("inspectSaladStorage reports WSL allocation and cleanup candidates", async 
     assert.equal(storage.allocated.sizeBytes, 13);
     assert.equal(storage.purge.safeBytes, 7);
     assert.equal(storage.purge.obsoleteBytes, 12);
+    assert.equal(storage.workloadStorage.downloadsBytes, 7);
+    assert.equal(storage.workloadStorage.obsoleteBytes, 5);
+    assert.equal(storage.workloadStorage.obsoletePackageCount, 1);
     assert.equal(
       storage.categories.some((category) => category.name === "logs" && category.protected),
       true,

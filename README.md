@@ -41,7 +41,14 @@ The Settings view can inspect Salad disk usage, including the WSL `ext4.vhdx`
 container disk image used by container jobs. Cleanup is split into safe cache,
 obsolete re-downloadable workload folders, and full cache/WSL cleanup. Logs are
 protected by default and require a separate irreversible confirmation before
-deletion.
+deletion. The storage view also separates workload downloads, recent workload
+packages, and obsolete workload packages so cache usage is not confused with
+logs or weekly Chopping evidence.
+
+The Docs view records the local Salad storage findings and links to the
+original Salad and Microsoft WSL references. It explains that full cache/WSL
+purge may force Salad to rebuild or re-download runtime data and should only be
+used when Salad and its WSL runtime are stopped.
 
 ## Requirements
 

@@ -502,6 +502,83 @@ h2 {
   color: #9ab0bd;
 }
 
+.docs-panel {
+  overflow: hidden;
+}
+
+.doc-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 22px;
+}
+
+.doc-block {
+  border: 1px solid #17394d;
+  border-radius: 8px;
+  background: #071724;
+  padding: 18px;
+}
+
+.doc-block h3 {
+  margin: 0 0 12px;
+  color: #f4fff8;
+  font-size: 20px;
+}
+
+.doc-block p {
+  margin: 0 0 12px;
+  color: #c9d9e2;
+  line-height: 1.65;
+}
+
+.doc-block p:last-child {
+  margin-bottom: 0;
+}
+
+.doc-block strong {
+  color: #f4fff8;
+}
+
+.doc-block code {
+  color: #c9ff37;
+  font-family: "Cascadia Mono", "Segoe UI Mono", Consolas, monospace;
+  overflow-wrap: anywhere;
+}
+
+.danger-doc {
+  border-color: #805d19;
+  background: #111d1b;
+}
+
+.source-list {
+  display: grid;
+  gap: 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.source-list li {
+  display: grid;
+  gap: 4px;
+}
+
+.source-list a {
+  color: #c9ff37;
+  font-weight: 900;
+  text-decoration: none;
+}
+
+.source-list a:hover {
+  text-decoration: underline;
+}
+
+.source-list span {
+  color: #9ab0bd;
+  line-height: 1.5;
+}
+
 .terminal-panel {
   min-height: 620px;
 }
@@ -600,6 +677,7 @@ h2 {
   }
 
   .definition-list.split,
+  .doc-grid,
   .gpu-row,
   .action-item {
     grid-template-columns: 1fr;

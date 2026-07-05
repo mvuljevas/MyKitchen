@@ -211,6 +211,10 @@ function normalizeStorage(storage) {
     },
     categories: storage?.categories ?? emptyStorage.categories,
     largestFiles: storage?.largestFiles ?? emptyStorage.largestFiles,
+    workloadStorage: {
+      ...emptyStorage.workloadStorage,
+      ...(storage?.workloadStorage ?? {}),
+    },
     notes: storage?.notes ?? emptyStorage.notes,
   };
 }

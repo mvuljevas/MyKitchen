@@ -152,6 +152,18 @@ export const emptyStorage = {
   },
   categories: [],
   largestFiles: [],
+  workloadStorage: {
+    path: "Unknown",
+    downloadsBytes: 0,
+    downloadsGb: 0,
+    currentBytes: 0,
+    currentGb: 0,
+    obsoleteBytes: 0,
+    obsoleteGb: 0,
+    packageCount: 0,
+    obsoletePackageCount: 0,
+    rule: "Start the helper to inspect Salad workload storage.",
+  },
   purge: {
     safeBytes: 0,
     safeGb: 0,

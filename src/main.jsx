@@ -12,7 +12,7 @@ import {
 import { emptyDashboard, starChefTargetHours } from "./data/emptyDashboard.js";
 import "./styles.css";
 
-const tabs = ["Overview", "Rig", "Live Monitor", "Coverage", "Machines", "Settings"];
+const tabs = ["Overview", "Rig", "Live Monitor", "Coverage", "Machines", "Docs", "Settings"];
 
 function App() {
   const [dashboard, setDashboard] = useState(emptyDashboard);
@@ -252,6 +252,8 @@ function App() {
       {activeTab === "Machines" ? (
         <Machines report={dashboard.report} status={status} />
       ) : null}
+
+      {activeTab === "Docs" ? <Docs storage={storage} /> : null}
 
       {activeTab === "Settings" ? (
         <Settings
@@ -650,6 +652,127 @@ function Machines({ report, status }) {
   );
 }
 
+function Docs({ storage }) {
+  return (
+    <section className="panel docs-panel">
+      <div className="panel-heading">
+        <div>
+          <p className="section-label">Docs</p>
+          <h2>Salad storage behavior</h2>
+        </div>
+        <StatusBadge tone={storage.allocated.sizeGb > 20 ? "warning" : "confirmed"}>
+          Local finding
+        </StatusBadge>
+      </div>
+
+      <div className="doc-grid">
+        <article className="doc-block">
+          <p className="section-label">This rig</p>
+          <h3>Observed disk allocation</h3>
+          <p>
+            Salad is using about <strong>{storage.totalGb.toFixed(2)} GB</strong> on this
+            machine. Almost all of it is allocated in{" "}
+            <code>{storage.allocated.path}</code>, currently about{" "}
+            <strong>{storage.allocated.sizeGb.toFixed(2)} GB</strong>.
+          </p>
+          <p>
+            Safe cleanup is currently estimated at{" "}
+            <strong>{storage.purge.safeGb.toFixed(3)} GB</strong>. Obsolete
+            re-downloadable workload cleanup is estimated at{" "}
+            <strong>{storage.purge.obsoleteGb.toFixed(3)} GB</strong>.
+          </p>
+          <p>
+            Workload storage is split into{" "}
+            <strong>{storage.workloadStorage.downloadsGb.toFixed(3)} GB</strong> of
+            downloads/cache,{" "}
+            <strong>{storage.workloadStorage.currentGb.toFixed(3)} GB</strong> of
+            recent workload packages, and{" "}
+            <strong>{storage.workloadStorage.obsoleteGb.toFixed(3)} GB</strong> of
+            obsolete workload packages.
+          </p>
+        </article>
+
+        <article className="doc-block">
+          <p className="section-label">Why it happens</p>
+          <h3>WSL VHDX grows with container work</h3>
+          <p>
+            Salad container jobs require WSL and virtualization. Microsoft
+            documents that WSL 2 stores each Linux distribution inside an
+            `ext4.vhdx` virtual disk that expands as storage is needed. That
+            means deleting files inside the Linux environment does not always
+            make Windows immediately recover the same amount of host disk space.
+          </p>
+          <p>
+            Salad also documents that some workloads require enough free storage
+            and that many container workloads may need around 100 GB available.
+          </p>
+        </article>
+
+        <article className="doc-block danger-doc">
+          <p className="section-label">Purge all cache</p>
+          <h3>What happens if everything allocated by Salad is removed?</h3>
+          <p>
+            A full cache purge can remove downloaded workload archives, stale
+            workload packages, and the Salad WSL storage folder. If those files
+            are truly cache/runtime remnants, Salad should be able to recreate
+            the runtime and download another workload when it receives one.
+          </p>
+          <p>
+            The tradeoff is operational: the next job may take longer to start,
+            Salad may need to rebuild WSL/container state, and deleting while a
+            job is running can interrupt work or corrupt runtime state. Full
+            purge should be done only when Salad and `salad-enterprise-linux`
+            are stopped.
+          </p>
+          <p>
+            Logs are different: they are evidence for local activity and
+            Chopping-hour validation. This app never includes logs in normal
+            cleanup; deleting logs requires a separate confirmation because
+            <strong> no se puede revertir</strong>.
+          </p>
+        </article>
+
+        <article className="doc-block">
+          <p className="section-label">Sources</p>
+          <h3>Original references</h3>
+          <ul className="source-list">
+            <li>
+              <a
+                href="https://support.salad.com/troubleshooting/container-jobs/container-workloads-troubleshooting/"
+                rel="noreferrer"
+                target="_blank"
+              >
+                Salad container troubleshooting
+              </a>
+              <span>Container jobs, WSL update, virtualization, free disk space.</span>
+            </li>
+            <li>
+              <a
+                href="https://support.salad.com/guides/using-salad/chopping-power/"
+                rel="noreferrer"
+                target="_blank"
+              >
+                Salad Chopping Power
+              </a>
+              <span>WSL/virtualization readiness and storage as job availability signals.</span>
+            </li>
+            <li>
+              <a
+                href="https://learn.microsoft.com/windows/wsl/disk-space"
+                rel="noreferrer"
+                target="_blank"
+              >
+                Microsoft WSL disk space
+              </a>
+              <span>WSL 2 `ext4.vhdx` behavior, disk location, and resizing.</span>
+            </li>
+          </ul>
+        </article>
+      </div>
+    </section>
+  );
+}
+
 function Settings({
   status,
   storage,
@@ -725,6 +848,16 @@ function Settings({
             value={`${storage.purge.obsoleteGb.toFixed(2)} GB`}
             detail="Stale re-downloadable workloads"
           />
+          <MetricCard
+            label="Recent workloads"
+            value={`${storage.workloadStorage.currentGb.toFixed(2)} GB`}
+            detail={`${storage.workloadStorage.packageCount - storage.workloadStorage.obsoletePackageCount} recent package(s)`}
+          />
+          <MetricCard
+            label="Obsolete workloads"
+            value={`${storage.workloadStorage.obsoleteGb.toFixed(2)} GB`}
+            detail={`${storage.workloadStorage.obsoletePackageCount} stale package(s)`}
+          />
         </div>
         <p className="body-copy">{storage.allocated.explanation}</p>
         <p className="body-copy">
@@ -742,7 +875,7 @@ function Settings({
             Delete obsolete
           </button>
           <button className="danger-button" type="button" onClick={() => onPurgeStorage("all")}>
-            Delete all cache
+            Delete all cache / WSL runtime
           </button>
         </div>
         {storageResult ? (

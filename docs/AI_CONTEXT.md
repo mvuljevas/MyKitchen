@@ -7,14 +7,15 @@ This file is the compact project summary for agents working in this repository.
 - Name: SaladChoppingHours.
 - Purpose: local web application for automatically calculating Salad Chopping
   hours and Star Chef qualification signals from a Salad installation folder.
-- Current version: 0.9.0.
+- Current version: 0.9.1.
 - Current phase: dashboard connected to a narrow read-only local helper with
   Chopping-hour history, Windows/WSL observability, live monitor, machine report
   export, one-command local suite orchestration, explicit empty offline states,
   a terminal-style live monitor, all-readable-log scan coverage, rig
   hardware/runtime readiness inspection, Salad storage inspection and guarded
-  cache cleanup, Windows elevated-suite relaunch, automatic browser opening for
-  the local suite, and app-managed hidden suite execution.
+  cache cleanup, in-app docs for Salad/WSL storage behavior, Windows
+  elevated-suite relaunch, automatic browser opening for the local suite, and
+  app-managed hidden suite execution.
 
 ## Stack
 
@@ -136,6 +137,10 @@ git diff --check
 - Inspect Salad disk usage, highlight WSL `ext4.vhdx` allocation, and expose
   guarded cleanup actions for safe cache, obsolete workload folders, and full
   cache/WSL removal.
+- Split workload storage into downloads/cache, recent workload packages, and
+  obsolete workload packages.
+- Show an in-app Docs tab with local Salad storage findings, original Salad and
+  Microsoft WSL references, and operational guidance for full cache/WSL purge.
 - Keep Salad logs protected by default; log deletion requires a separate
   explicit confirmation because it removes local evidence for Chopping-hour
   validation.
