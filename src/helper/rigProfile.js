@@ -51,6 +51,34 @@ export async function getMaxOptimizationPlan() {
   };
 }
 
+export async function applyOptimizationAction(actionId) {
+  if (actionId !== "windows-power-plan") {
+    return {
+      applied: false,
+      actionId,
+      message: "This optimization action is advisory only for now.",
+    };
+  }
+
+  if (os.platform() !== "win32") {
+    return {
+      applied: false,
+      actionId,
+      message: "Windows power plan optimization is only available on Windows.",
+    };
+  }
+
+  await execFileAsync("powercfg.exe", ["/setactive", "SCHEME_MIN"], {
+    windowsHide: true,
+  });
+
+  return {
+    applied: true,
+    actionId,
+    message: "Windows High Performance power plan has been activated.",
+  };
+}
+
 export function buildOptimizationPlan(profile) {
   const actions = [];
   const primaryGpu = profile.gpus.find((gpu) => gpu.vendor === "nvidia") ?? profile.gpus[0];
@@ -133,7 +161,7 @@ export function buildOptimizationPlan(profile) {
       title: "Memory capacity is strong for container workloads",
       status: "ready",
       impact: "medium",
-      detail: `${profile.memory.totalGb} GB RAM detected. This is suitable for heavier WSL/container assignments.`,
+      detail: `${profile.memory.installedGb ?? profile.memory.totalGb} GB installed RAM detected (${profile.memory.totalGb} GB usable by Windows). This is suitable for heavier WSL/container assignments.`,
       apply: {
         automatic: false,
         reason: "No change needed.",
@@ -197,6 +225,7 @@ async function readComputerInfo() {
           "$cs = Get-CimInstance Win32_ComputerSystem;",
           "$os = Get-CimInstance Win32_OperatingSystem;",
           "$cpu = Get-CimInstance Win32_Processor | Select-Object -First 1;",
+          "$installedMemory = (Get-CimInstance Win32_PhysicalMemory | Measure-Object Capacity -Sum).Sum;",
           "[pscustomobject]@{",
           "OsName=$os.Caption;",
           "OsVersion=$os.Version;",
@@ -204,6 +233,7 @@ async function readComputerInfo() {
           "Manufacturer=$cs.Manufacturer;",
           "Model=$cs.Model;",
           "TotalPhysicalMemory=$cs.TotalPhysicalMemory;",
+          "InstalledPhysicalMemory=$installedMemory;",
           "LogicalProcessors=$cs.NumberOfLogicalProcessors;",
           "HyperVisorPresent=$cs.HypervisorPresent;",
           "Processor=$cpu",
@@ -233,6 +263,8 @@ async function readComputerInfo() {
       memory: {
         totalBytes,
         totalGb: Math.round(totalBytes / 1024 / 1024 / 1024),
+        installedBytes: Number(info.InstalledPhysicalMemory ?? totalBytes),
+        installedGb: Math.round(Number(info.InstalledPhysicalMemory ?? totalBytes) / 1024 / 1024 / 1024),
       },
       hypervisorPresent: Boolean(info.HyperVisorPresent),
     };

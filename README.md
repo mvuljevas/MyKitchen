@@ -35,7 +35,13 @@ timestamps. This helps explain local rig activity without counting it as
 confirmed Star Chef progress unless recognized Chopping signals are present.
 The Rig view inspects Windows, WSL, CPU, memory, GPU, power plan, Salad
 processes, and helper elevation, then generates a maximum-availability
-optimization plan without applying system changes automatically.
+optimization plan with explicit actions for supported safe changes.
+
+The Settings view can inspect Salad disk usage, including the WSL `ext4.vhdx`
+container disk image used by container jobs. Cleanup is split into safe cache,
+obsolete re-downloadable workload folders, and full cache/WSL cleanup. Logs are
+protected by default and require a separate irreversible confirmation before
+deletion.
 
 ## Requirements
 
@@ -120,6 +126,7 @@ npm test
 - Detect whether Salad and its workload service are currently running.
 - Reconstruct Chopping intervals from local Salad miner log signals.
 - Inspect local rig hardware and runtime readiness for Salad jobs.
+- Inspect Salad disk usage and provide guarded cache cleanup actions.
 - Compare totals against the official Star Chef threshold.
 - Present results in a local web interface without requiring an AI agent.
 

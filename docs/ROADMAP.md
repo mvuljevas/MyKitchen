@@ -39,6 +39,7 @@ Status: started.
   estimate.
 - Show source log window and terminal-style live events.
 - Show rig hardware/runtime readiness and max-availability optimization advice.
+- Show Salad disk allocation and guarded cache cleanup actions.
 
 Status: started.
 

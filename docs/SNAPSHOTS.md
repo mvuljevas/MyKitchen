@@ -538,3 +538,44 @@ Risks:
 Next suggested step:
 
 - Add persistent startup logs for packaged Windows troubleshooting.
+
+## 2026-07-05 - Block 016: Salad Storage Inspection And Guarded Cleanup
+
+Branch:
+
+- `main`
+
+Current state:
+
+- The helper exposes `/salad/storage` to report Salad disk usage, top-level
+  storage categories, largest files, the WSL `ext4.vhdx` allocation, and cleanup
+  candidates.
+- The helper exposes `/salad/storage/purge` with dry-run default behavior and
+  guarded modes for safe cache, obsolete re-downloadable workload folders, and
+  full cache/WSL cleanup.
+- Salad logs are protected by default and require a separate
+  `DELETE_LOGS` confirmation because deletion cannot be reverted and removes
+  evidence used for Chopping-hour validation.
+- The Settings view now shows storage inspection and cleanup actions.
+- The Rig view can apply the Windows High Performance power plan action.
+- Workload and activity cards use clearer labels and smaller typography to
+  reduce awkward wrapping.
+- Installed RAM is shown separately from Windows-usable RAM.
+- Version moved to `0.9.0`.
+
+Decisions:
+
+- Treat Salad WSL storage as the primary local allocation signal because the
+  WSL VHD can grow with container jobs and may not shrink automatically.
+- Keep cleanup actions explicit and local-only; safe mode never deletes logs or
+  WSL storage.
+
+Risks:
+
+- Full WSL cleanup can force Salad to rebuild or re-download workloads and
+  should only be used when Salad is idle.
+
+Next suggested step:
+
+- Block non-dry-run full WSL cleanup automatically when Salad or
+  `salad-enterprise-linux` is running.

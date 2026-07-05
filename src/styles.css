@@ -112,6 +112,15 @@ h2 {
   opacity: 0.48;
 }
 
+.danger-button {
+  min-height: 42px;
+  border: 1px solid #8f3333;
+  padding: 0 16px;
+  background: #3b1d1d;
+  color: #ffb4b4;
+  white-space: nowrap;
+}
+
 .tabs {
   display: flex;
   gap: 22px;
@@ -189,9 +198,10 @@ h2 {
 .metric-card strong {
   display: block;
   color: #f4fff8;
-  font-size: 28px;
-  line-height: 1.08;
-  overflow-wrap: anywhere;
+  font-size: 24px;
+  line-height: 1.15;
+  overflow-wrap: break-word;
+  word-break: normal;
 }
 
 .metric-card.accent strong,
@@ -446,6 +456,50 @@ h2 {
 
 .log-errors span {
   color: #ffcf70;
+}
+
+.settings-section {
+  margin-top: 28px;
+  border-top: 1px solid #17394d;
+  padding-top: 22px;
+}
+
+.storage-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 18px 0;
+}
+
+.storage-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.storage-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 16px;
+  align-items: center;
+  border: 1px solid #17394d;
+  border-radius: 8px;
+  background: #071724;
+  padding: 12px 14px;
+}
+
+.storage-row strong,
+.storage-row span {
+  display: block;
+}
+
+.storage-row strong {
+  color: #f4fff8;
+}
+
+.storage-row span {
+  margin-top: 4px;
+  color: #9ab0bd;
 }
 
 .terminal-panel {

@@ -7,7 +7,8 @@ import {
   calculateLogActivitySummary,
 } from "./choppingParser.js";
 import { ensureElevatedProcess } from "./elevation.js";
-import { getMaxOptimizationPlan, inspectRig } from "./rigProfile.js";
+import { applyOptimizationAction, getMaxOptimizationPlan, inspectRig } from "./rigProfile.js";
+import { inspectSaladStorage, purgeSaladStorage } from "./storageInspector.js";
 import { inspectSystem, requestElevatedHelper } from "./systemProbe.js";
 import { classifyWorkload } from "./workloadClassifier.js";
 
@@ -133,6 +134,9 @@ async function routeRequest(request, response) {
         "/salad/workload/current",
         "/salad/rig/config",
         "/salad/rig/optimize",
+        "/salad/rig/optimize/apply?action=windows-power-plan",
+        "/salad/storage",
+        "/salad/storage/purge?mode=safe&dryRun=true",
         "/salad/events",
         "/salad/report",
         "/salad/elevate",
@@ -185,6 +189,31 @@ async function routeRequest(request, response) {
 
   if (url.pathname === "/salad/rig/optimize") {
     sendJson(response, 200, await getMaxOptimizationPlan());
+    return;
+  }
+
+  if (url.pathname === "/salad/rig/optimize/apply") {
+    sendJson(response, 200, await applyOptimizationAction(url.searchParams.get("action")));
+    return;
+  }
+
+  if (url.pathname === "/salad/storage") {
+    sendJson(response, 200, await inspectSaladStorage(installPath));
+    return;
+  }
+
+  if (url.pathname === "/salad/storage/purge") {
+    sendJson(
+      response,
+      200,
+      await purgeSaladStorage(installPath, {
+        mode: url.searchParams.get("mode") ?? "safe",
+        dryRun: url.searchParams.get("dryRun") !== "false",
+        includeLogs: url.searchParams.get("includeLogs") === "true",
+        confirm: url.searchParams.get("confirm") ?? "",
+        logConfirm: url.searchParams.get("logConfirm") ?? "",
+      }),
+    );
     return;
   }
 

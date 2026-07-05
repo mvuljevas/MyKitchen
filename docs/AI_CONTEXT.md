@@ -7,14 +7,14 @@ This file is the compact project summary for agents working in this repository.
 - Name: SaladChoppingHours.
 - Purpose: local web application for automatically calculating Salad Chopping
   hours and Star Chef qualification signals from a Salad installation folder.
-- Current version: 0.8.4.
+- Current version: 0.9.0.
 - Current phase: dashboard connected to a narrow read-only local helper with
   Chopping-hour history, Windows/WSL observability, live monitor, machine report
   export, one-command local suite orchestration, explicit empty offline states,
   a terminal-style live monitor, all-readable-log scan coverage, rig
-  hardware/runtime readiness inspection, Windows elevated-suite relaunch, and
-  automatic browser opening for the local suite, and app-managed hidden suite
-  execution.
+  hardware/runtime readiness inspection, Salad storage inspection and guarded
+  cache cleanup, Windows elevated-suite relaunch, automatic browser opening for
+  the local suite, and app-managed hidden suite execution.
 
 ## Stack
 
@@ -105,6 +105,8 @@ git diff --check
 - `src/helper/elevation.js`: Windows UAC relaunch and elevation inspection.
 - `src/helper/rigProfile.js`: rig hardware, Windows, WSL, Salad, GPU, power, and
   max-availability optimization plan inspection.
+- `src/helper/storageInspector.js`: Salad storage inventory, WSL VHD allocation
+  reporting, and guarded cleanup candidate selection.
 - `src/dev/suite.js`: one-command supervisor for UI, helper, and monitor.
 - `src/api/dashboard.js`: UI API adapter with helper and explicit offline
   empty-state behavior.
@@ -131,6 +133,12 @@ git diff --check
   separately from confirmed Chopping intervals.
 - Inspect rig configuration and generate advisory max-availability optimization
   actions without changing Windows, WSL, NVIDIA, or Salad automatically.
+- Inspect Salad disk usage, highlight WSL `ext4.vhdx` allocation, and expose
+  guarded cleanup actions for safe cache, obsolete workload folders, and full
+  cache/WSL removal.
+- Keep Salad logs protected by default; log deletion requires a separate
+  explicit confirmation because it removes local evidence for Chopping-hour
+  validation.
 - On Windows, `npm run suite`, `npm run helper`, and `npm run monitor` relaunch
   through UAC when not already elevated.
 - `npm run suite` opens `http://127.0.0.1:5173/` in the default browser unless
@@ -156,6 +164,8 @@ git diff --check
 - Parser currently uses miner log signals and a gap heuristic for intervals.
 - Multi-PC totals require exported reports from each machine.
 - Salad log formats and official Star Chef rules can change over time.
+- Deleting Salad WSL storage may force Salad to rebuild or re-download
+  workloads; the app treats this as a dangerous explicit action.
 
 ## Search Notes
 

@@ -108,6 +108,8 @@ export const emptyRig = {
   memory: {
     totalBytes: 0,
     totalGb: 0,
+    installedBytes: 0,
+    installedGb: 0,
   },
   virtualization: {
     hypervisorPresent: false,
@@ -137,6 +139,31 @@ export const emptyRig = {
   },
 };
 
+export const emptyStorage = {
+  installPath: "Helper offline",
+  scannedAt: null,
+  totalBytes: 0,
+  totalGb: 0,
+  allocated: {
+    path: "Unknown",
+    sizeBytes: 0,
+    sizeGb: 0,
+    explanation: "Start the helper to inspect Salad storage.",
+  },
+  categories: [],
+  largestFiles: [],
+  purge: {
+    safeBytes: 0,
+    safeGb: 0,
+    obsoleteBytes: 0,
+    obsoleteGb: 0,
+    allBytes: 0,
+    allGb: 0,
+    candidates: [],
+  },
+  notes: [],
+};
+
 export const emptyDashboard = {
   source: "offline",
   helperOnline: false,
@@ -145,6 +172,7 @@ export const emptyDashboard = {
   choppingSummary: emptyChoppingSummary,
   logActivity: emptyLogActivitySummary,
   rig: emptyRig,
+  storage: emptyStorage,
   optimizationPlan: null,
   suite: {
     managed: false,

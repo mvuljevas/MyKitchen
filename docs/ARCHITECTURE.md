@@ -5,7 +5,8 @@ This document records the current technical direction for SaladChoppingHours.
 ## Current Decision
 
 SaladChoppingHours will use a local React/Vite browser UI backed by a small
-read-only local helper process.
+local helper process. The helper is read-only for observation endpoints and has
+narrow, guarded maintenance endpoints for explicit cleanup actions.
 
 The helper will expose a localhost-only API for Salad installation inspection.
 The browser UI will not attempt to read `C:\ProgramData\Salad` directly.
@@ -33,7 +34,7 @@ React/Vite UI
     |
     | localhost HTTP API
     v
-Read-only local helper
+Local helper
     |
     +-- Salad installation files
     +-- Local process status
@@ -48,8 +49,9 @@ The first helper implementation should be intentionally narrow:
 - Read bounded log slices for parser development.
 - Report whether known Salad processes appear to be running.
 
-The helper should not write to Salad files, modify system settings, or expose a
-general filesystem browser.
+The helper should not expose a general filesystem browser. Any write-capable
+operation must be a purpose-built maintenance endpoint with dry-run behavior and
+explicit confirmation.
 
 ## API Boundary
 
@@ -62,6 +64,11 @@ GET /salad/status
 GET /salad/logs
 GET /salad/chopping-history
 GET /salad/workload/current
+GET /salad/rig/config
+GET /salad/rig/optimize
+GET /salad/rig/optimize/apply?action=windows-power-plan
+GET /salad/storage
+GET /salad/storage/purge?mode=safe&dryRun=true
 GET /salad/events
 GET /salad/report
 GET /salad/elevate
@@ -77,6 +84,8 @@ the same constraints:
 - Return structured JSON.
 - Bound reads by size, path allowlist, and file type.
 - Avoid returning secrets or unrelated local files.
+- Keep write-capable maintenance endpoints narrow, explicit, and guarded by
+  confirmation parameters.
 
 ## Implementation Notes
 
@@ -98,6 +107,13 @@ The elevated suite runs hidden by default and is managed by the app through
 `GET /suite/status` and `GET /suite/shutdown`. `npm run suite` reuses an
 existing healthy helper/UI instead of starting a duplicate listener.
 
+Storage inspection is implemented as a purpose-built Salad maintenance API.
+`GET /salad/storage` reports top-level Salad storage, largest files, the WSL
+`ext4.vhdx` allocation, and cleanup candidates. `GET /salad/storage/purge`
+supports dry-run estimates by default and only deletes selected candidates when
+called with `dryRun=false`. Logs remain protected unless log deletion is
+explicitly requested and separately confirmed.
+
 ## Deferred Decisions
 
 - Whether to package the app as a desktop application.
@@ -105,3 +121,5 @@ existing healthy helper/UI instead of starting a duplicate listener.
 - Whether to add authentication for localhost access.
 - How to store user-selected Salad path preferences.
 - Whether non-miner Salad logs should refine Chopping interval boundaries.
+- Whether full WSL cache cleanup should stop Salad/WSL automatically before
+  deleting the container storage folder.

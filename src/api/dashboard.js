@@ -3,6 +3,7 @@ import {
   emptyDashboard,
   emptyLogActivitySummary,
   emptyRig,
+  emptyStorage,
   emptyStatus,
 } from "../data/emptyDashboard.js";
 
@@ -10,16 +11,18 @@ const helperBaseUrl = import.meta.env.VITE_HELPER_URL ?? "http://127.0.0.1:48173
 
 export async function loadDashboardData() {
   try {
-    const [health, status, logs, history, workload, report, rig, suite] = await Promise.all([
-      fetchJson("/health"),
-      fetchJson("/salad/status"),
-      fetchJson("/salad/logs"),
-      fetchJson("/salad/chopping-history"),
-      fetchJson("/salad/workload/current"),
-      fetchJson("/salad/report"),
-      fetchJson("/salad/rig/config"),
-      fetchOptionalJson("/suite/status"),
-    ]);
+    const [health, status, logs, history, workload, report, rig, storage, suite] =
+      await Promise.all([
+        fetchJson("/health"),
+        fetchJson("/salad/status"),
+        fetchJson("/salad/logs"),
+        fetchJson("/salad/chopping-history"),
+        fetchJson("/salad/workload/current"),
+        fetchJson("/salad/report"),
+        fetchJson("/salad/rig/config"),
+        fetchOptionalJson("/salad/storage"),
+        fetchOptionalJson("/suite/status"),
+      ]);
 
     const choppingSummary = normalizeChoppingSummary(history);
 
@@ -33,6 +36,7 @@ export async function loadDashboardData() {
       choppingSummary,
       logActivity: normalizeLogActivity(history.logActivity),
       rig: normalizeRig(rig),
+      storage: normalizeStorage(storage),
       suite: suite ?? emptyDashboard.suite,
       report,
       recentEvents: buildRecentEvents(status, logs.logs ?? [], choppingSummary),
@@ -71,8 +75,36 @@ export async function requestRigOptimizationPlan() {
   return fetchJson("/salad/rig/optimize");
 }
 
+export async function applyRigOptimizationAction(action) {
+  return fetchJson(`/salad/rig/optimize/apply?action=${encodeURIComponent(action)}`);
+}
+
 export async function requestSuiteShutdown() {
   return fetchJson("/suite/shutdown");
+}
+
+export async function requestStoragePurge({
+  mode,
+  dryRun = true,
+  includeLogs = false,
+  confirm = "",
+  logConfirm = "",
+}) {
+  const params = new URLSearchParams({
+    mode,
+    dryRun: String(dryRun),
+    includeLogs: String(includeLogs),
+  });
+
+  if (confirm) {
+    params.set("confirm", confirm);
+  }
+
+  if (logConfirm) {
+    params.set("logConfirm", logConfirm);
+  }
+
+  return fetchJson(`/salad/storage/purge?${params.toString()}`);
 }
 
 async function fetchJson(path) {
@@ -161,6 +193,25 @@ function normalizeRig(rig) {
       actions: rig?.optimization?.actions ?? emptyRig.optimization.actions,
     },
     gpus: rig?.gpus ?? emptyRig.gpus,
+  };
+}
+
+function normalizeStorage(storage) {
+  return {
+    ...emptyStorage,
+    ...(storage ?? {}),
+    allocated: {
+      ...emptyStorage.allocated,
+      ...(storage?.allocated ?? {}),
+    },
+    purge: {
+      ...emptyStorage.purge,
+      ...(storage?.purge ?? {}),
+      candidates: storage?.purge?.candidates ?? emptyStorage.purge.candidates,
+    },
+    categories: storage?.categories ?? emptyStorage.categories,
+    largestFiles: storage?.largestFiles ?? emptyStorage.largestFiles,
+    notes: storage?.notes ?? emptyStorage.notes,
   };
 }
 

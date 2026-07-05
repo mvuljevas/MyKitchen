@@ -1,9 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
+  applyRigOptimizationAction,
   loadDashboardData,
   requestElevatedHelper,
   requestRigOptimizationPlan,
+  requestStoragePurge,
   requestSuiteShutdown,
   subscribeToEvents,
 } from "./api/dashboard.js";
@@ -17,12 +19,14 @@ function App() {
   const [activeTab, setActiveTab] = useState("Overview");
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isOptimizing, setIsOptimizing] = useState(false);
+  const [storageResult, setStorageResult] = useState(null);
   const [liveEvents, setLiveEvents] = useState([]);
   const {
     choppingHistory,
     choppingSummary,
     logActivity,
     rig,
+    storage,
     status,
     workload,
     source,
@@ -72,6 +76,20 @@ function App() {
     setIsOptimizing(false);
   }
 
+  async function applyOptimization(actionId) {
+    const result = await applyRigOptimizationAction(actionId);
+    setLiveEvents((events) => [
+      ...events,
+      {
+        observedAt: new Date().toISOString(),
+        source: "rig",
+        level: result.applied ? "info" : "warning",
+        message: result.message,
+      },
+    ]);
+    await refreshDashboard();
+  }
+
   async function stopSuite() {
     await requestSuiteShutdown();
     setLiveEvents((events) => [
@@ -83,6 +101,53 @@ function App() {
         message: "Requested managed suite shutdown.",
       },
     ]);
+  }
+
+  async function purgeStorage(mode) {
+    const dryRun = !window.confirm(
+      `Apply ${mode} cleanup now?\n\nCancel will run an estimate only. OK will delete selected cache candidates.`,
+    );
+    let includeLogs = false;
+    let confirm = "";
+    let logConfirm = "";
+
+    if (mode === "all") {
+      confirm = window.prompt(
+        'Danger zone. Type DELETE_ALL_SALAD_CACHE to allow full cache/WSL storage purge. This can force Salad to rebuild or re-download workloads.',
+        "",
+      );
+
+      if (confirm !== "DELETE_ALL_SALAD_CACHE") {
+        setStorageResult({ message: "Full purge cancelled." });
+        return;
+      }
+
+      includeLogs = window.confirm(
+        'Logs are protected. Delete logs too?\n\nWARNING: no se puede revertir. This may remove evidence needed for Chopping-hour validation.',
+      );
+
+      if (includeLogs) {
+        logConfirm = window.prompt(
+          'Type DELETE_LOGS to confirm log deletion. WARNING: no se puede revertir.',
+          "",
+        );
+
+        if (logConfirm !== "DELETE_LOGS") {
+          includeLogs = false;
+          logConfirm = "";
+        }
+      }
+    }
+
+    const result = await requestStoragePurge({
+      mode,
+      dryRun,
+      includeLogs,
+      confirm,
+      logConfirm,
+    });
+    setStorageResult(result);
+    await refreshDashboard();
   }
 
   useEffect(() => {
@@ -164,6 +229,7 @@ function App() {
       {activeTab === "Rig" ? (
         <Rig
           isOptimizing={isOptimizing}
+          onApplyOptimization={applyOptimization}
           onOptimize={optimizeRig}
           plan={dashboard.optimizationPlan}
           rig={rig}
@@ -191,7 +257,10 @@ function App() {
         <Settings
           status={status}
           suite={dashboard.suite}
+          storage={storage}
+          storageResult={storageResult}
           onElevate={elevateHelper}
+          onPurgeStorage={purgeStorage}
           onStopSuite={stopSuite}
         />
       ) : null}
@@ -231,15 +300,15 @@ function Overview({
           tone={starChef.progress >= 100 ? "positive" : "neutral"}
         />
         <MetricCard
-          label="Rig log activity"
+          label="Salad app activity"
           value={`${logActivity.rolling7DaysHours.toFixed(1)}h`}
-          detail="Inferred from all Salad log timestamps"
+          detail="App/log activity, not earnings credit"
           tone="neutral"
         />
         <MetricCard
           label="Current workload"
-          value={workload.label}
-          detail={`${workload.source} · ${workload.confidence}`}
+          value={formatWorkloadLabel(workload)}
+          detail={describeWorkload(workload)}
           tone={workload.confidence === "confirmed" ? "positive" : "neutral"}
         />
       </section>
@@ -335,7 +404,7 @@ function LiveMonitor({ events, source }) {
   );
 }
 
-function Rig({ isOptimizing, onOptimize, plan, rig }) {
+function Rig({ isOptimizing, onApplyOptimization, onOptimize, plan, rig }) {
   const primaryGpu = rig.gpus.find((gpu) => gpu.vendor === "nvidia") ?? rig.gpus[0];
 
   return (
@@ -355,9 +424,9 @@ function Rig({ isOptimizing, onOptimize, plan, rig }) {
         />
         <MetricCard
           label="Memory"
-          value={`${rig.memory.totalGb} GB`}
-          detail="Physical RAM detected"
-          tone={rig.memory.totalGb >= 32 ? "positive" : "neutral"}
+          value={`${rig.memory.installedGb || rig.memory.totalGb} GB`}
+          detail={`${rig.memory.totalGb} GB usable by Windows`}
+          tone={(rig.memory.installedGb || rig.memory.totalGb) >= 32 ? "positive" : "neutral"}
         />
         <MetricCard
           label="Primary GPU"
@@ -449,14 +518,17 @@ function Rig({ isOptimizing, onOptimize, plan, rig }) {
           <button className="primary-button" type="button" onClick={onOptimize}>
             {isOptimizing ? "Analyzing..." : "Generate max plan"}
           </button>
-          <OptimizationActions actions={(plan?.actions ?? rig.optimization.actions)} />
+          <OptimizationActions
+            actions={(plan?.actions ?? rig.optimization.actions)}
+            onApply={onApplyOptimization}
+          />
         </aside>
       </section>
     </>
   );
 }
 
-function OptimizationActions({ actions }) {
+function OptimizationActions({ actions, onApply }) {
   if (actions.length === 0) {
     return <p className="empty-state">No optimization actions are available yet.</p>;
   }
@@ -469,9 +541,15 @@ function OptimizationActions({ actions }) {
             <strong>{action.title}</strong>
             <span>{action.detail}</span>
           </div>
-          <StatusBadge tone={action.status === "ready" ? "confirmed" : action.status}>
-            {action.impact}
-          </StatusBadge>
+          {action.id === "windows-power-plan" ? (
+            <button className="secondary-button" type="button" onClick={() => onApply(action.id)}>
+              Apply
+            </button>
+          ) : (
+            <StatusBadge tone={action.status === "ready" ? "confirmed" : action.status}>
+              {action.impact}
+            </StatusBadge>
+          )}
         </article>
       ))}
     </div>
@@ -572,7 +650,15 @@ function Machines({ report, status }) {
   );
 }
 
-function Settings({ status, suite, onElevate, onStopSuite }) {
+function Settings({
+  status,
+  storage,
+  storageResult,
+  suite,
+  onElevate,
+  onPurgeStorage,
+  onStopSuite,
+}) {
   return (
     <section className="panel">
       <div className="panel-heading">
@@ -614,6 +700,71 @@ function Settings({ status, suite, onElevate, onStopSuite }) {
       >
         Stop managed suite
       </button>
+      <section className="settings-section">
+        <p className="section-label">Storage</p>
+        <h2>Salad disk usage and cleanup</h2>
+        <div className="metric-grid compact">
+          <MetricCard
+            label="Total Salad storage"
+            value={`${storage.totalGb.toFixed(1)} GB`}
+            detail={storage.installPath}
+          />
+          <MetricCard
+            label="Allocated WSL space"
+            value={`${storage.allocated.sizeGb.toFixed(1)} GB`}
+            detail="Container job disk image"
+            tone={storage.allocated.sizeGb > 20 ? "warning" : "neutral"}
+          />
+          <MetricCard
+            label="Safe cleanup"
+            value={`${storage.purge.safeGb.toFixed(2)} GB`}
+            detail="Download/cache candidates"
+          />
+          <MetricCard
+            label="Obsolete cleanup"
+            value={`${storage.purge.obsoleteGb.toFixed(2)} GB`}
+            detail="Stale re-downloadable workloads"
+          />
+        </div>
+        <p className="body-copy">{storage.allocated.explanation}</p>
+        <p className="body-copy">
+          Allocated path: <code>{storage.allocated.path}</code>
+        </p>
+        <div className="storage-actions">
+          <button className="primary-button" type="button" onClick={() => onPurgeStorage("safe")}>
+            Safe cleanup
+          </button>
+          <button
+            className="secondary-button"
+            type="button"
+            onClick={() => onPurgeStorage("obsolete")}
+          >
+            Delete obsolete
+          </button>
+          <button className="danger-button" type="button" onClick={() => onPurgeStorage("all")}>
+            Delete all cache
+          </button>
+        </div>
+        {storageResult ? (
+          <p className="notice">
+            {storageResult.message ??
+              `${storageResult.dryRun ? "Estimated" : "Selected"} ${storageResult.selectedGb ?? 0} GB across ${storageResult.results?.length ?? 0} candidate(s).`}
+          </p>
+        ) : null}
+        <div className="storage-list">
+          {storage.categories.map((category) => (
+            <article className="storage-row" key={category.path}>
+              <div>
+                <strong>{category.name}</strong>
+                <span>
+                  {category.type} · {category.protected ? "protected" : "cleanup-aware"}
+                </span>
+              </div>
+              <strong>{category.sizeGb.toFixed(3)} GB</strong>
+            </article>
+          ))}
+        </div>
+      </section>
     </section>
   );
 }
@@ -718,6 +869,39 @@ function formatEventMessage(event) {
   }
 
   return "Observation received";
+}
+
+function formatWorkloadLabel(workload) {
+  if (workload.type === "mining" || workload.type === "historical-mining") {
+    const family = workload.label.match(/\(([^)]+)\)/)?.[1] ?? "GPU";
+    return `Mining\u00a0(${family})`;
+  }
+
+  if (workload.type === "container") {
+    return "Container job";
+  }
+
+  if (workload.type === "bandwidth") {
+    return "Bandwidth job";
+  }
+
+  return workload.label ?? "Unknown";
+}
+
+function describeWorkload(workload) {
+  if (workload.type === "mining" || workload.type === "historical-mining") {
+    return `GPU proof-of-work workload · ${workload.confidence}`;
+  }
+
+  if (workload.type === "container") {
+    return `WSL/container compute workload · ${workload.confidence}`;
+  }
+
+  if (workload.type === "bandwidth") {
+    return `Network bandwidth sharing · ${workload.confidence}`;
+  }
+
+  return `${workload.source} · ${workload.confidence}`;
 }
 
 createRoot(document.getElementById("root")).render(

@@ -5,7 +5,9 @@ must treat that data as private and local by default.
 
 ## Security Model
 
-The selected architecture uses a browser UI and a read-only local helper.
+The selected architecture uses a browser UI and a local helper. Observation
+endpoints are read-only. Maintenance endpoints are narrow, local-only, and
+guarded by explicit confirmation.
 
 The helper is trusted local code running on the user's machine. It should expose
 only the minimum API needed by the UI and should bind to localhost only.
@@ -37,8 +39,9 @@ Disallowed initial access:
 
 - Arbitrary user directories.
 - Secret files such as `.env`, certificates, keys, or browser profiles.
-- Write access to Salad installation data.
-- Deleting, moving, or modifying local files.
+- Generic write access to Salad installation data.
+- Deleting, moving, or modifying local files outside purpose-built maintenance
+  endpoints.
 
 ## Localhost API Rules
 
@@ -75,3 +78,11 @@ The helper API should:
   and the API stays purpose-built for Salad inspection.
 - Hidden elevated execution can be stopped from the Settings view through the
   localhost-only managed suite shutdown endpoint.
+- `GET /salad/storage` reports Salad disk usage, including the WSL `ext4.vhdx`
+  allocation used by container jobs.
+- `GET /salad/storage/purge` defaults to dry-run estimates. Actual deletion
+  requires `dryRun=false`; full cache/WSL cleanup requires
+  `confirm=DELETE_ALL_SALAD_CACHE`; log deletion additionally requires
+  `includeLogs=true` and `logConfirm=DELETE_LOGS`.
+- Logs are protected by default because deleting them removes local evidence
+  used to validate Chopping-hour history.
