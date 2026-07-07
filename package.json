@@ -1,7 +1,7 @@
 {
-  "name": "salad-chopping-hours",
+  "name": "mykitchen",
   "private": true,
-  "version": "0.9.1",
+  "version": "0.10.1",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -15,9 +15,15 @@
   },
   "dependencies": {
     "@vitejs/plugin-react": "^5.0.0",
-    "vite": "^7.0.0",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "recharts": "^3.9.2",
+    "simplebar": "^6.3.3",
+    "simplebar-react": "^3.3.2",
+    "vite": "^7.0.0"
   },
-  "devDependencies": {}
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.2",
+    "tailwindcss": "^4.3.2"
+  }
 }

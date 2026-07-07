@@ -1,5 +1,159 @@
 # Snapshots
 
+## 2026-07-07 - Block 022: Instant Chart Range Switching And Day Hourly View
+
+Branch:
+
+- `main`
+
+Current state:
+
+- Switching between Day, Week, Month, and Year chart ranges is now instant and
+  requires no additional network requests.
+- The helper always returns the full 365-day daily history plus a 24-bucket
+  hourly history for the current day in a single payload.
+- The UI slices the cached array client-side for Week, Month, and Year views.
+- The Day view now renders 24 hourly buckets (00:00 to 23:00) instead of a
+  single daily point.
+- Version bumped to 0.10.1.
+
+Decisions:
+
+- Fetch the maximum range once and filter locally to keep range switching at
+  zero latency.
+- Hourly buckets are computed from the same parsed intervals already in memory,
+  adding no extra log scan cost.
+- The `days` query param on the endpoint is kept for backward compatibility but
+  is now ignored; the server always returns 365 days.
+
+Risks:
+
+- The 365-day parse is the longest scan; if log volume grows significantly the
+  initial load time may increase. A streaming or incremental approach would
+  address this if needed.
+
+Next suggested step:
+
+- Add a separate import workflow for multi-PC machine reports.
+
+## 2026-07-07 - Block 021: Chart Rendering And Auto-Refresh Bug Fixes
+
+Branch:
+
+- `main`
+
+Current state:
+
+- The Recharts graph now renders correctly on first load. The previous bug was
+  caused by `ResponsiveContainer` receiving `height="100%"` while its CSS
+  parent only had `min-height`, which Recharts measured as 0 px.
+- The auto-refresh interval no longer gets permanently stuck. The previous bug
+  was caused by `refreshDashboard` being a `useCallback([historyDays])`
+  dependency of the interval `useEffect`: changing the chart range destroyed
+  and recreated the interval, and if a request was in flight at that moment
+  `refreshInFlightRef.current` was never reset, blocking all future refreshes.
+- `refreshDashboard` is now a stable callback that reads `historyDays` through
+  a ref. The interval is created once on mount and its cleanup resets the
+  in-flight guard.
+
+Decisions:
+
+- Use an explicit pixel height on `ResponsiveContainer` so Recharts always gets
+  a non-zero measurement regardless of the parent CSS rule.
+- Keep `historyDays` out of `useCallback` deps by routing it through a ref.
+
+Risks:
+
+- None introduced; both fixes are isolated to the UI render and effect lifecycle.
+
+Next suggested step:
+
+- Instant chart range switching (implemented in Block 022).
+
+## 2026-07-06 - Block 019: Premium Dashboard Cockpit
+
+Branch:
+
+- `main`
+
+Current state:
+
+- The Overview dashboard now uses a premium cockpit-style layout inspired by a
+  dense admin dashboard structure, while keeping MyKitchen product identity and
+  source-labelled Salad data.
+- The first viewport prioritizes current work, last-24-hours Chopping, rolling
+  7-day Star Chef estimate, process status, and earnings availability.
+- Earnings remain conservative: the UI only displays a dollar amount when an
+  earnings field is present in the current helper payload; otherwise it states
+  that earnings are not exposed by the helper.
+- Dashboard data refreshes automatically every 15 seconds and keeps a styled
+  manual sync action without requiring the user to press refresh for normal
+  updates.
+- Added a local MyKitchen SVG logo under `public/` and wired it as the browser
+  favicon.
+- The tab bar, buttons, dialogs, and dashboard surfaces remain custom-styled
+  rather than relying on unstyled browser controls.
+
+Decisions:
+
+- Keep fidelity above excitement for money data; do not derive earnings from
+  Chopping hours without a confirmed SaladBowl payload field.
+- Keep secondary evidence such as coverage, rig activity, and parser context
+  available below the priority summary instead of giving every signal equal
+  first-viewport weight.
+
+Risks:
+
+- Real earnings display still depends on a future helper payload or validated
+  SaladBowl source that exposes earnings data.
+
+Next suggested step:
+
+- Add a separate import workflow for multi-PC machine reports.
+
+## 2026-07-06 - Block 020: Sidebar, Interactive Charts, And Parser Fidelity
+
+Branch:
+
+- `main`
+
+Current state:
+
+- The dashboard navigation is now a left sidebar on desktop, with the content
+  surface scrolling through SimpleBar instead of the browser body scrollbar.
+- Recharts is installed and the Overview graph supports styled controls for
+  day, week, month, and year windows plus area/bar modes.
+- The UI requests `/salad/chopping-history` with the selected day count instead
+  of always using the fixed 7-day response.
+- The hero Chopping value now uses the parser `totalHours` for the selected
+  window. Last-24-hours remains visible as a separate secondary metric, avoiding
+  the previous mismatch where the monitor printed parser total while Overview
+  showed only the 24-hour value.
+- The dashboard API adapter keeps parser data available even when slower helper
+  endpoints such as rig/status/report time out.
+- The Rig view no longer renders suggested optimization actions.
+- The displayed machine identity now distinguishes a Salad RIG ID from a local
+  fallback hash. If no Salad RIG ID is exposed locally, the UI says so instead
+  of presenting the fallback as the real Salad ID.
+- Helper CORS now allows local Vite development ports in the `5170-5179` range.
+- Vite splits chart and scrollbar dependencies into separate chunks.
+
+Decisions:
+
+- Parser totals are the source of truth for the headline Chopping total within
+  the selected chart window.
+- The local hostname hash is only a fallback identifier because it did not
+  match the Salad machine ID visible in the user's reference.
+
+Risks:
+
+- A confirmed Salad RIG ID still depends on finding a reliable local SaladBowl
+  payload or API field; current local config files did not expose the short ID.
+
+Next suggested step:
+
+- Add a separate import workflow for multi-PC machine reports.
+
 Snapshots preserve project memory across sessions, handoffs, branch changes,
 and context compaction.
 
@@ -551,11 +705,11 @@ Current state:
   storage categories, largest files, the WSL `ext4.vhdx` allocation, and cleanup
   candidates.
 - The helper exposes `/salad/storage/purge` with dry-run default behavior and
-  guarded modes for safe cache, obsolete re-downloadable workload folders, and
-  full cache/WSL cleanup.
-- Salad logs are protected by default and require a separate
-  `DELETE_LOGS` confirmation because deletion cannot be reverted and removes
-  evidence used for Chopping-hour validation.
+  guarded modes that later proved too broad and were replaced in Block 018 by
+  job-cache-only cleanup.
+- Salad logs were protected by default and required a separate irreversible
+  confirmation because deletion cannot be reverted and removes evidence used for
+  Chopping-hour validation.
 - The Settings view now shows storage inspection and cleanup actions.
 - The Rig view can apply the Windows High Performance power plan action.
 - Workload and activity cards use clearer labels and smaller typography to
@@ -572,13 +726,12 @@ Decisions:
 
 Risks:
 
-- Full WSL cleanup can force Salad to rebuild or re-download workloads and
-  should only be used when Salad is idle.
+- The broader cleanup model could force Salad to rebuild or re-download
+  workloads and was later removed.
 
 Next suggested step:
 
-- Block non-dry-run full WSL cleanup automatically when Salad or
-  `salad-enterprise-linux` is running.
+- Replace the broad cleanup model with a narrower job-cache-only boundary.
 
 ## 2026-07-05 - Block 017: In-App Storage Behavior Docs
 
@@ -595,9 +748,8 @@ Current state:
   space may not immediately return after data is removed inside WSL.
 - Storage inspection now splits workload storage into downloads/cache, recent
   workload packages, and obsolete workload packages.
-- Full cache/WSL purge is documented as rebuildable/re-downloadable runtime
-  cleanup that should only happen while Salad and `salad-enterprise-linux` are
-  stopped.
+- Earlier broad runtime purge guidance was documented here, then replaced in
+  Block 018 by job-cache-only cleanup.
 - Version moved to `0.9.1`.
 
 Decisions:
@@ -607,10 +759,46 @@ Decisions:
 
 Risks:
 
-- Current full purge still relies on explicit user confirmation rather than
-  automatically blocking active Salad/WSL runtime state.
+- Broad runtime cleanup still relied on explicit user confirmation at this
+  point and was later removed.
 
 Next suggested step:
 
-- Add runtime blocking for non-dry-run full cache/WSL purge when Salad or WSL
-  activity is detected.
+- Replace broad runtime cleanup with a conservative job-cache-only purge.
+
+## 2026-07-05 - Block 018: MyKitchen Identity And Conservative Job-Cache Cleanup
+
+Branch:
+
+- `main`
+
+Current state:
+
+- The project identity is now MyKitchen in package metadata, browser title,
+  app chrome, helper output, and current documentation.
+- Tailwind is wired into Vite and used for the storage cleanup confirmation
+  dialog.
+- Native browser confirmation and prompt dialogs were removed from the storage
+  cleanup flow.
+- Storage purge candidates are limited to explicit job cache folders under
+  `workloads`, such as `_downloads`, `cache`, `tmp`, and `temp`.
+- Logs, boot logs, WSL runtime storage, rig configuration, and workload package
+  folders are excluded from cleanup candidates.
+- The storage purge endpoint ignores the older broad cleanup mode by mapping it
+  back to job-cache cleanup.
+- Version moved to `0.10.0`.
+
+Decisions:
+
+- Keep storage cleanup narrowly focused on job cache only.
+- Treat log deletion as a separate feature, not part of cleanup.
+- Do not delete workload package folders based only on age.
+
+Risks:
+
+- Disk used by WSL runtime storage can still be reported but is no longer
+  recoverable through the app cleanup button.
+
+Next suggested step:
+
+- Add a separate import workflow for multi-PC machine reports.

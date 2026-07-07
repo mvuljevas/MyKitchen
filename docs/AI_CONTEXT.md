@@ -4,18 +4,20 @@ This file is the compact project summary for agents working in this repository.
 
 ## Project
 
-- Name: SaladChoppingHours.
+- Name: MyKitchen.
 - Purpose: local web application for automatically calculating Salad Chopping
   hours and Star Chef qualification signals from a Salad installation folder.
-- Current version: 0.9.1.
+- Current version: 0.10.1.
 - Current phase: dashboard connected to a narrow read-only local helper with
   Chopping-hour history, Windows/WSL observability, live monitor, machine report
   export, one-command local suite orchestration, explicit empty offline states,
   a terminal-style live monitor, all-readable-log scan coverage, rig
   hardware/runtime readiness inspection, Salad storage inspection and guarded
-  cache cleanup, in-app docs for Salad/WSL storage behavior, Windows
-  elevated-suite relaunch, automatic browser opening for the local suite, and
-  app-managed hidden suite execution.
+  job-cache cleanup, in-app docs for Salad/WSL storage behavior, Windows
+  elevated-suite relaunch, automatic browser opening for the local suite,
+  app-managed hidden suite execution, periodic dashboard refresh, and a
+  left-sidebar priority cockpit layout with interactive chart windows for work,
+  flow, and earnings availability.
 
 ## Stack
 
@@ -110,7 +112,8 @@ git diff --check
   reporting, and guarded cleanup candidate selection.
 - `src/dev/suite.js`: one-command supervisor for UI, helper, and monitor.
 - `src/api/dashboard.js`: UI API adapter with helper and explicit offline
-  empty-state behavior.
+  empty-state behavior. It keeps parser data usable even when slower secondary
+  helper endpoints time out.
 - `src/data/emptyDashboard.js`: empty dashboard values and Star Chef threshold.
 - `docs/SNAPSHOTS.md`: chronological project memory.
 - `docs/ROADMAP.md`: planned product direction.
@@ -133,17 +136,15 @@ git diff --check
 - Expose inferred rig log activity from all Salad log modification timestamps,
   separately from confirmed Chopping intervals.
 - Inspect rig configuration and generate advisory max-availability optimization
-  actions without changing Windows, WSL, NVIDIA, or Salad automatically.
+  telemetry without showing suggested optimization actions in the UI.
 - Inspect Salad disk usage, highlight WSL `ext4.vhdx` allocation, and expose
-  guarded cleanup actions for safe cache, obsolete workload folders, and full
-  cache/WSL removal.
+  guarded cleanup actions limited to explicit job cache under `workloads`.
 - Split workload storage into downloads/cache, recent workload packages, and
   obsolete workload packages.
 - Show an in-app Docs tab with local Salad storage findings, original Salad and
-  Microsoft WSL references, and operational guidance for full cache/WSL purge.
-- Keep Salad logs protected by default; log deletion requires a separate
-  explicit confirmation because it removes local evidence for Chopping-hour
-  validation.
+  Microsoft WSL references, and operational guidance for the cleanup boundary.
+- Keep Salad logs, boot logs, WSL runtime storage, rig configuration, and
+  workload package folders outside normal cleanup.
 - On Windows, `npm run suite`, `npm run helper`, and `npm run monitor` relaunch
   through UAC when not already elevated.
 - `npm run suite` opens `http://127.0.0.1:5173/` in the default browser unless
@@ -151,12 +152,23 @@ git diff --check
 - The elevated suite runs hidden by default, reuses an existing healthy helper
   or suite, and exposes `/suite/status` plus `/suite/shutdown` for app-managed
   lifecycle control.
+- The Overview dashboard refreshes local helper data every 15 seconds and keeps
+  manual sync as a styled secondary action.
+- The Overview chart uses Recharts and can request 1, 7, 30, or 365 days from
+  `/salad/chopping-history`.
 - Windows UAC relaunch starts `node.exe` directly and the original `npm run
   suite` command waits for the dashboard URL before reporting background
   startup success.
 - Keep lifetime Salad totals separate from local 7-day computed history.
 - Show last-24-hours, rolling-7-days, and estimated Star Chef progress as
   separate values.
+- Prioritize current workload, last-24-hours Chopping, rolling 7-day progress,
+  and source-labelled earnings availability in the first viewport.
+- Show the parser total for the selected chart window as the hero Chopping
+  value; keep last-24-hours as a separate secondary metric.
+- Use custom SimpleBar scroll surfaces for the app shell and scrollable panels.
+- Treat the local hostname hash as a fallback machine ID, not as a confirmed
+  Salad RIG ID.
 - Do not fabricate sample dashboard values when helper data is unavailable.
 - Prefer one elevated suite context on Windows so UI, helper, and monitor share
   administrator-level Salad, WSL, service, and hardware observability.
@@ -169,8 +181,8 @@ git diff --check
 - Parser currently uses miner log signals and a gap heuristic for intervals.
 - Multi-PC totals require exported reports from each machine.
 - Salad log formats and official Star Chef rules can change over time.
-- Deleting Salad WSL storage may force Salad to rebuild or re-download
-  workloads; the app treats this as a dangerous explicit action.
+- Job-cache cleanup is conservative and intentionally excludes WSL runtime,
+  logs, configuration, and workload package folders.
 
 ## Search Notes
 
