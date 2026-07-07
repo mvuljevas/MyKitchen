@@ -8,7 +8,7 @@ export default defineConfig({
       output: {
         manualChunks: {
           charts: ["recharts"],
-          scrollbars: ["simplebar", "simplebar-react"],
+          scrollbars: ["simplebar-react"],
         },
       },
     },
