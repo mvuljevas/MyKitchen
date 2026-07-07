@@ -1,5 +1,42 @@
 # Snapshots
 
+## 2026-07-07 - Block 023: Dependency Cleanup And Suite Stop/Restart Scripts
+
+Branch:
+
+- `main`
+
+Current state:
+
+- The `simplebar` vanilla package was removed. It was a leftover from before
+  the React wrapper was adopted; the app only uses `simplebar-react` which
+  depends on `simplebar-core` internally.
+- The reference to `simplebar` in the Vite `manualChunks` config was also
+  removed; the scrollbars chunk now lists only `simplebar-react`.
+- Added `npm run suite:stop` (`src/dev/stop.js`) and `npm run suite:restart`
+  (`src/dev/restart.js`) to stop and restart the local suite from the command
+  line without requiring an open browser session or Settings view.
+- `suite:stop` tries the graceful `/suite/shutdown` helper endpoint first,
+  then falls back to port-based process termination via `taskkill`.
+- `suite:restart` reuses the exported `stop()` function and then imports
+  `suite.js` so only one UAC prompt is shown on Windows.
+- Version bumped to 0.10.2.
+
+Decisions:
+
+- Keep `simplebar-react` as the only scrollbar dependency; `simplebar-core` is
+  its own transitive dep and does not need to be listed separately.
+- Export `stop()` from `stop.js` so `restart.js` can call it directly without
+  spawning a subprocess or triggering a second UAC elevation.
+
+Risks:
+
+- None introduced; both changes are isolated to dev tooling and build config.
+
+Next suggested step:
+
+- Add a separate import workflow for multi-PC machine reports.
+
 ## 2026-07-07 - Block 022: Instant Chart Range Switching And Day Hourly View
 
 Branch:
