@@ -7,6 +7,8 @@
     "dev": "vite",
     "suite": "node src/dev/suite.js",
     "suite:ui": "node src/dev/suite.js --no-monitor",
+    "suite:stop": "node src/dev/stop.js",
+    "suite:restart": "node src/dev/restart.js",
     "helper": "node src/helper/server.js",
     "monitor": "node src/helper/monitor.js",
     "build": "vite build",
