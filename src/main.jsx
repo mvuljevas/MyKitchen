@@ -1,28 +1,57 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
-  applyRigOptimizationAction,
+  Area,
+  AreaChart,
+  Bar,
+  BarChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
+import SimpleBar from "simplebar-react";
+import {
   loadDashboardData,
   requestElevatedHelper,
-  requestRigOptimizationPlan,
   requestStoragePurge,
   requestSuiteShutdown,
   subscribeToEvents,
 } from "./api/dashboard.js";
 import { emptyDashboard, starChefTargetHours } from "./data/emptyDashboard.js";
+import "simplebar-react/dist/simplebar.min.css";
 import "./styles.css";
 
 const tabs = ["Overview", "Rig", "Live Monitor", "Coverage", "Machines", "Docs", "Settings"];
+const refreshIntervalMs = 15000;
+const chartRanges = [
+  { label: "Day", days: 1 },
+  { label: "Week", days: 7 },
+  { label: "Month", days: 30 },
+  { label: "Year", days: 365 },
+];
+const chartModes = ["Area", "Bars"];
 
 function App() {
   const [dashboard, setDashboard] = useState(emptyDashboard);
   const [activeTab, setActiveTab] = useState("Overview");
+  const [historyDays, setHistoryDays] = useState(7);
+  const [chartMode, setChartMode] = useState("Area");
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [isOptimizing, setIsOptimizing] = useState(false);
   const [storageResult, setStorageResult] = useState(null);
+  const [storageAction, setStorageAction] = useState(null);
   const [liveEvents, setLiveEvents] = useState([]);
+  const [lastRefreshedAt, setLastRefreshedAt] = useState(null);
+  const refreshInFlightRef = useRef(false);
+  // Keep historyDays accessible inside the stable interval callback without
+  // recreating the interval every time the range changes.
+  const historyDaysRef = useRef(historyDays);
+  historyDaysRef.current = historyDays;
+
   const {
     choppingHistory,
+    hourlyHistory,
     choppingSummary,
     logActivity,
     rig,
@@ -35,13 +64,37 @@ function App() {
   } = dashboard;
   const starChef = choppingSummary.starChefEstimate;
   const coverage = choppingSummary.coverage ?? {};
-  const machineLabel = `${status.machine?.hostname ?? "This PC"} · ${status.machine?.id ?? "unknown"}`;
+  const machineLabel = formatMachineLabel(status.machine);
 
-  async function refreshDashboard() {
-    setIsRefreshing(true);
-    setDashboard(await loadDashboardData());
-    setIsRefreshing(false);
-  }
+  // Slice the full 365-day array client-side so range switching is instant.
+  // Day view uses hourly buckets (24 points) from the same payload.
+  const visibleHistory = useMemo(() => {
+    if (historyDays === 1) {
+      return hourlyHistory;
+    }
+    return choppingHistory.slice(-historyDays);
+  }, [choppingHistory, hourlyHistory, historyDays]);
+
+  // Stable callback — never recreated, reads historyDays through the ref.
+  const refreshDashboard = useCallback(async ({ background = false } = {}) => {
+    if (refreshInFlightRef.current) {
+      return;
+    }
+
+    refreshInFlightRef.current = true;
+    if (!background) {
+      setIsRefreshing(true);
+    }
+
+    try {
+      setDashboard(await loadDashboardData({ days: historyDaysRef.current }));
+      setLastRefreshedAt(new Date());
+    } finally {
+      refreshInFlightRef.current = false;
+      setIsRefreshing(false);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function elevateHelper() {
     await requestElevatedHelper();
@@ -54,40 +107,6 @@ function App() {
         message: "Requested elevated helper through Windows UAC.",
       },
     ]);
-  }
-
-  async function optimizeRig() {
-    setIsOptimizing(true);
-    const plan = await requestRigOptimizationPlan();
-    setDashboard((currentDashboard) => ({
-      ...currentDashboard,
-      optimizationPlan: plan,
-      rig: plan.rig ?? currentDashboard.rig,
-    }));
-    setLiveEvents((events) => [
-      ...events,
-      {
-        observedAt: new Date().toISOString(),
-        source: "rig",
-        level: "info",
-        message: "Generated maximum availability optimization plan.",
-      },
-    ]);
-    setIsOptimizing(false);
-  }
-
-  async function applyOptimization(actionId) {
-    const result = await applyRigOptimizationAction(actionId);
-    setLiveEvents((events) => [
-      ...events,
-      {
-        observedAt: new Date().toISOString(),
-        source: "rig",
-        level: result.applied ? "info" : "warning",
-        message: result.message,
-      },
-    ]);
-    await refreshDashboard();
   }
 
   async function stopSuite() {
@@ -103,55 +122,33 @@ function App() {
     ]);
   }
 
-  async function purgeStorage(mode) {
-    const dryRun = !window.confirm(
-      `Apply ${mode} cleanup now?\n\nCancel will run an estimate only. OK will delete selected cache candidates.`,
-    );
-    let includeLogs = false;
-    let confirm = "";
-    let logConfirm = "";
-
-    if (mode === "all") {
-      confirm = window.prompt(
-        'Danger zone. Type DELETE_ALL_SALAD_CACHE to allow full cache/WSL storage purge. This can force Salad to rebuild or re-download workloads.',
-        "",
-      );
-
-      if (confirm !== "DELETE_ALL_SALAD_CACHE") {
-        setStorageResult({ message: "Full purge cancelled." });
-        return;
-      }
-
-      includeLogs = window.confirm(
-        'Logs are protected. Delete logs too?\n\nWARNING: no se puede revertir. This may remove evidence needed for Chopping-hour validation.',
-      );
-
-      if (includeLogs) {
-        logConfirm = window.prompt(
-          'Type DELETE_LOGS to confirm log deletion. WARNING: no se puede revertir.',
-          "",
-        );
-
-        if (logConfirm !== "DELETE_LOGS") {
-          includeLogs = false;
-          logConfirm = "";
-        }
-      }
-    }
-
+  async function purgeStorage({ dryRun }) {
     const result = await requestStoragePurge({
-      mode,
+      mode: "job-cache",
       dryRun,
-      includeLogs,
-      confirm,
-      logConfirm,
     });
     setStorageResult(result);
+    setStorageAction(null);
     await refreshDashboard();
   }
 
+  // Run once on mount: initial load + stable interval.
+  // refreshDashboard is now stable (no deps), so this effect never re-runs
+  // and the interval is never recreated unnecessarily.
   useEffect(() => {
     refreshDashboard();
+    const refreshTimer = window.setInterval(() => {
+      refreshDashboard({ background: true });
+    }, refreshIntervalMs);
+
+    return () => {
+      // Clear the interval and release the in-flight guard so a pending
+      // request from a previous render can't permanently block future ones.
+      window.clearInterval(refreshTimer);
+      refreshInFlightRef.current = false;
+    };
+  // refreshDashboard is intentionally stable — omit from deps.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -177,47 +174,68 @@ function App() {
   }, [dashboard.recentEvents, liveEvents]);
 
   return (
-    <main className="app-shell">
+    <div className="app-shell">
+      <aside className="sidebar" aria-label="MyKitchen navigation">
+        <div className="brand-lockup">
+          <img alt="" className="brand-mark" src="/mykitchen-logo.svg" />
+          <div>
+            <p className="eyebrow">MyKitchen</p>
+            <h1>MyKitchen</h1>
+          </div>
+        </div>
+        <nav className="sidebar-nav" aria-label="Dashboard sections">
+          {tabs.map((tab) => (
+            <button
+              className={activeTab === tab ? "nav-item active" : "nav-item"}
+              key={tab}
+              type="button"
+              onClick={() => setActiveTab(tab)}
+            >
+              <span>{tab}</span>
+            </button>
+          ))}
+        </nav>
+        <div className="sidebar-footer">
+          <StatusBadge tone={source === "helper" ? "confirmed" : "warning"}>
+            {source === "helper" ? "Helper connected" : "Helper offline"}
+          </StatusBadge>
+          <span>{machineLabel}</span>
+        </div>
+      </aside>
+
+      <SimpleBar className="app-scroll">
+        <main className="content-shell">
       <header className="app-header">
         <div>
-          <p className="eyebrow">SaladChoppingHours</p>
-          <h1>Local Chopping observability</h1>
-          <p className="hero-copy">
-            Salad documents Star Chef as 3000 minutes per week, but does not publish
-            the exact qualification date window. This dashboard shows local 24h,
-            rolling 7-day, and estimated Star Chef progress separately.
-          </p>
+          <p className="eyebrow">Dashboard</p>
+          <h1>Chopping cockpit</h1>
         </div>
         <div className="header-actions">
           <StatusBadge tone={source === "helper" ? "confirmed" : "warning"}>
             {source === "helper" ? "Helper connected" : "Helper offline"}
           </StatusBadge>
-          <button className="primary-button" type="button" onClick={refreshDashboard}>
-            {isRefreshing ? "Refreshing..." : "Refresh data"}
+          <span className="refresh-indicator">
+            {isRefreshing ? "Refreshing" : `Auto ${refreshIntervalMs / 1000}s`}
+            {lastRefreshedAt ? ` · ${formatTerminalTime(lastRefreshedAt)}` : ""}
+          </span>
+          <button className="icon-button" type="button" onClick={() => refreshDashboard()}>
+            {isRefreshing ? "Updating" : "Sync"}
           </button>
         </div>
       </header>
-
-      <nav className="tabs" aria-label="Dashboard sections">
-        {tabs.map((tab) => (
-          <button
-            className={activeTab === tab ? "tab active" : "tab"}
-            key={tab}
-            type="button"
-            onClick={() => setActiveTab(tab)}
-          >
-            {tab}
-          </button>
-        ))}
-      </nav>
 
       {error ? <p className="notice error">{error}</p> : null}
 
       {activeTab === "Overview" ? (
         <Overview
           coverage={coverage}
-          history={choppingHistory}
+          chartMode={chartMode}
+          history={visibleHistory}
+          historyDays={historyDays}
+          lastRefreshedAt={lastRefreshedAt}
           machineLabel={machineLabel}
+          onChartModeChange={setChartMode}
+          onRangeChange={setHistoryDays}
           starChef={starChef}
           status={status}
           summary={choppingSummary}
@@ -228,10 +246,6 @@ function App() {
 
       {activeTab === "Rig" ? (
         <Rig
-          isOptimizing={isOptimizing}
-          onApplyOptimization={applyOptimization}
-          onOptimize={optimizeRig}
-          plan={dashboard.optimizationPlan}
           rig={rig}
         />
       ) : null}
@@ -262,77 +276,140 @@ function App() {
           storage={storage}
           storageResult={storageResult}
           onElevate={elevateHelper}
-          onPurgeStorage={purgeStorage}
+          onEstimateStorage={() => purgeStorage({ dryRun: true })}
+          onOpenPurgeDialog={() => setStorageAction("job-cache")}
           onStopSuite={stopSuite}
         />
       ) : null}
-    </main>
+
+      <StorageCleanupDialog
+        action={storageAction}
+        onCancel={() => setStorageAction(null)}
+        onConfirm={() => purgeStorage({ dryRun: false })}
+        storage={storage}
+      />
+        </main>
+      </SimpleBar>
+    </div>
   );
 }
 
 function Overview({
+  chartMode,
   coverage,
   history,
+  historyDays,
+  lastRefreshedAt,
   logActivity,
   machineLabel,
+  onChartModeChange,
+  onRangeChange,
   starChef,
   status,
   summary,
   workload,
 }) {
+  const earnings = extractEstimatedEarnings(summary);
+  const progressWidth = `${Math.min(Math.max(starChef.progress, 0), 100)}%`;
+  const activeRange = chartRanges.find((range) => range.days === historyDays) ?? chartRanges[1];
+
   return (
     <>
-      <section className="metric-grid" aria-label="Current Salad status">
-        <MetricCard
-          label="Last 24 hours"
-          value={`${summary.last24Hours.toFixed(1)}h`}
-          detail="Rolling local log estimate"
-          tone="accent"
-        />
-        <MetricCard
-          label="Rolling 7 days"
-          value={`${summary.rolling7DaysHours.toFixed(1)}h`}
-          detail={`${summary.signalCount} signals · ${summary.intervalCount} intervals`}
-          tone="accent"
-        />
-        <MetricCard
-          label="Star Chef estimate"
-          value={`${starChef.progress}%`}
-          detail={`${starChef.remainingHours.toFixed(1)}h remaining to ${starChefTargetHours}h`}
-          tone={starChef.progress >= 100 ? "positive" : "neutral"}
-        />
-        <MetricCard
-          label="Salad app activity"
-          value={`${logActivity.rolling7DaysHours.toFixed(1)}h`}
-          detail="App/log activity, not earnings credit"
-          tone="neutral"
-        />
-        <MetricCard
-          label="Current workload"
-          value={formatWorkloadLabel(workload)}
-          detail={describeWorkload(workload)}
-          tone={workload.confidence === "confirmed" ? "positive" : "neutral"}
-        />
+      <section className="command-grid" aria-label="Priority Chopping summary">
+        <section className="hero-panel" aria-labelledby="priority-heading">
+          <div className="hero-panel-top">
+            <div>
+              <p className="section-label">Current work</p>
+              <h2 id="priority-heading">{formatWorkloadLabel(workload)}</h2>
+            </div>
+            <StatusBadge tone={workload.confidence === "confirmed" ? "confirmed" : "warning"}>
+              {workload.confidence}
+            </StatusBadge>
+          </div>
+          <p className="hero-metric">{summary.totalHours.toFixed(2)}h</p>
+          <p className="hero-caption">
+            confirmed parser total for the selected {activeRange.label.toLowerCase()} window
+          </p>
+          <div className="progress-track priority" aria-label="Estimated Star Chef progress">
+            <span style={{ width: progressWidth }} />
+          </div>
+          <div className="hero-foot">
+            <span>{starChef.progress}% Star Chef estimate</span>
+            <span>{starChef.remainingHours.toFixed(1)}h to {starChefTargetHours}h</span>
+          </div>
+        </section>
+
+        <section className="money-panel" aria-labelledby="earnings-heading">
+          <p className="section-label">Money</p>
+          <h2 id="earnings-heading">Estimated earned</h2>
+          <strong>{earnings.value}</strong>
+          <span>{earnings.detail}</span>
+        </section>
+
+        <section className="status-panel" aria-label="Live system status">
+          <WorkSignal
+            label="Last 24 hours"
+            value={`${summary.last24Hours.toFixed(2)}h`}
+            detail="Live 24h parser window"
+          />
+          <WorkSignal
+            label="Rolling window"
+            value={`${summary.rolling7DaysHours.toFixed(1)}h`}
+            detail={`${summary.signalCount} signals · ${summary.intervalCount} intervals`}
+          />
+          <WorkSignal
+            label="Salad process"
+            value={status.process.label}
+            detail={status.service?.label ?? "Service status unknown"}
+          />
+          <WorkSignal
+            label="Last update"
+            value={lastRefreshedAt ? formatTerminalTime(lastRefreshedAt) : "Pending"}
+            detail={machineLabel}
+          />
+        </section>
       </section>
 
       <section className="dashboard-grid">
-        <section className="panel chart-panel" aria-labelledby="history-heading">
+        <section className="panel chart-panel priority-chart" aria-labelledby="history-heading">
           <div className="panel-heading">
             <div>
-              <p className="section-label">Daily local history</p>
-              <h2 id="history-heading">Last 7 calendar days</h2>
+              <p className="section-label">Interactive graph</p>
+              <h2 id="history-heading">{activeRange.label} Chopping history</h2>
             </div>
-            <StatusBadge tone={summary.confidence}>{summary.confidence}</StatusBadge>
+            <div className="chart-controls" aria-label="Chart controls">
+              <div className="segmented-control">
+                {chartModes.map((mode) => (
+                  <button
+                    className={chartMode === mode ? "segment active" : "segment"}
+                    key={mode}
+                    type="button"
+                    onClick={() => onChartModeChange(mode)}
+                  >
+                    {mode}
+                  </button>
+                ))}
+              </div>
+              <div className="segmented-control">
+                {chartRanges.map((range) => (
+                  <button
+                    className={historyDays === range.days ? "segment active" : "segment"}
+                    key={range.days}
+                    type="button"
+                    onClick={() => onRangeChange(range.days)}
+                  >
+                    {range.label}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
-          <ChoppingChart data={history} />
+          <ChoppingChart data={history} mode={chartMode} />
         </section>
 
         <aside className="panel side-panel" aria-labelledby="truth-heading">
-          <p className="section-label">What this number means</p>
-          <h2 id="truth-heading">Source-labelled estimate</h2>
-          <div className="progress-track" aria-label="Estimated Star Chef progress">
-            <span style={{ width: `${Math.min(starChef.progress, 100)}%` }} />
-          </div>
+          <p className="section-label">Fidelity</p>
+          <h2 id="truth-heading">Source-labelled truth</h2>
           <p className="body-copy">{starChef.note}</p>
           <p className="body-copy">
             Rig log activity is shown separately because log writes prove local
@@ -359,6 +436,10 @@ function Overview({
               <dt>Salad process</dt>
               <dd>{status.process.label}</dd>
             </div>
+            <div>
+              <dt>Rig app activity</dt>
+              <dd>{logActivity.rolling7DaysHours.toFixed(1)}h, not earnings credit</dd>
+            </div>
           </dl>
         </aside>
       </section>
@@ -366,11 +447,21 @@ function Overview({
   );
 }
 
+function WorkSignal({ detail, label, value }) {
+  return (
+    <article className="work-signal">
+      <span>{label}</span>
+      <strong>{value}</strong>
+      <small>{detail}</small>
+    </article>
+  );
+}
+
 function LiveMonitor({ events, source }) {
   const terminalRef = useRef(null);
 
   useEffect(() => {
-    terminalRef.current?.scrollTo({
+    terminalRef.current?.scrollTo?.({
       top: terminalRef.current.scrollHeight,
       behavior: "smooth",
     });
@@ -387,7 +478,7 @@ function LiveMonitor({ events, source }) {
           {source === "helper" ? "Streaming" : "Waiting for helper"}
         </StatusBadge>
       </div>
-      <div className="terminal" ref={terminalRef}>
+      <SimpleBar className="terminal" scrollableNodeProps={{ ref: terminalRef }}>
         {events.length === 0 ? (
           <TerminalLine
             event={{
@@ -401,12 +492,12 @@ function LiveMonitor({ events, source }) {
             <TerminalLine event={event} key={`${event.observedAt}-${index}`} />
           ))
         )}
-      </div>
+      </SimpleBar>
     </section>
   );
 }
 
-function Rig({ isOptimizing, onApplyOptimization, onOptimize, plan, rig }) {
+function Rig({ rig }) {
   const primaryGpu = rig.gpus.find((gpu) => gpu.vendor === "nvidia") ?? rig.gpus[0];
 
   return (
@@ -438,8 +529,7 @@ function Rig({ isOptimizing, onApplyOptimization, onOptimize, plan, rig }) {
         />
       </section>
 
-      <section className="dashboard-grid">
-        <section className="panel">
+      <section className="panel">
           <div className="panel-heading">
             <div>
               <p className="section-label">Rig configuration</p>
@@ -508,53 +598,8 @@ function Rig({ isOptimizing, onApplyOptimization, onOptimize, plan, rig }) {
               </article>
             ))}
           </div>
-        </section>
-
-        <aside className="panel side-panel">
-          <p className="section-label">Max optimization</p>
-          <h2>Availability plan</h2>
-          <p className="body-copy">
-            Generate a hardware-aware plan for maximum Salad job availability. This
-            does not change Windows, NVIDIA, WSL, or Salad settings automatically.
-          </p>
-          <button className="primary-button" type="button" onClick={onOptimize}>
-            {isOptimizing ? "Analyzing..." : "Generate max plan"}
-          </button>
-          <OptimizationActions
-            actions={(plan?.actions ?? rig.optimization.actions)}
-            onApply={onApplyOptimization}
-          />
-        </aside>
       </section>
     </>
-  );
-}
-
-function OptimizationActions({ actions, onApply }) {
-  if (actions.length === 0) {
-    return <p className="empty-state">No optimization actions are available yet.</p>;
-  }
-
-  return (
-    <div className="action-list">
-      {actions.map((action) => (
-        <article className={`action-item ${action.status}`} key={action.id}>
-          <div>
-            <strong>{action.title}</strong>
-            <span>{action.detail}</span>
-          </div>
-          {action.id === "windows-power-plan" ? (
-            <button className="secondary-button" type="button" onClick={() => onApply(action.id)}>
-              Apply
-            </button>
-          ) : (
-            <StatusBadge tone={action.status === "ready" ? "confirmed" : action.status}>
-              {action.impact}
-            </StatusBadge>
-          )}
-        </article>
-      ))}
-    </div>
   );
 }
 
@@ -617,7 +662,7 @@ function Coverage({ coverage, logs, logActivity, summary }) {
       <p className="body-copy">{coverage.retentionNote}</p>
       <p className="body-copy">{logActivity.note}</p>
       {coverage.readErrorSamples?.length > 0 ? (
-        <div className="log-errors">
+        <SimpleBar className="log-errors">
           <h3>Unreadable log samples</h3>
           <ul>
             {coverage.readErrorSamples.map((error) => (
@@ -627,7 +672,7 @@ function Coverage({ coverage, logs, logActivity, summary }) {
               </li>
             ))}
           </ul>
-        </div>
+        </SimpleBar>
       ) : null}
     </section>
   );
@@ -644,7 +689,15 @@ function Machines({ report, status }) {
       </div>
       <div className="metric-grid compact">
         <MetricCard label="Current machine" value={status.machine?.hostname ?? "This PC"} />
-        <MetricCard label="Machine ID" value={status.machine?.id ?? "unknown"} />
+        <MetricCard
+          label="Salad RIG ID"
+          value={status.machine?.saladId ?? "Not exposed locally"}
+          detail={
+            status.machine?.saladId
+              ? "Read from Salad evidence"
+              : `Local fallback ${status.machine?.localId ?? status.machine?.id ?? "unknown"}`
+          }
+        />
         <MetricCard label="Report export" value={report ? "Available" : "Unavailable"} />
         <MetricCard label="Multi-PC total" value="Not enabled" detail="Import is a later block" />
       </div>
@@ -676,10 +729,10 @@ function Docs({ storage }) {
             <strong>{storage.allocated.sizeGb.toFixed(2)} GB</strong>.
           </p>
           <p>
-            Safe cleanup is currently estimated at{" "}
-            <strong>{storage.purge.safeGb.toFixed(3)} GB</strong>. Obsolete
-            re-downloadable workload cleanup is estimated at{" "}
-            <strong>{storage.purge.obsoleteGb.toFixed(3)} GB</strong>.
+            Download cleanup is currently estimated at{" "}
+            <strong>{storage.purge.safeGb.toFixed(3)} GB</strong>. Total explicit
+            job-cache cleanup is estimated at{" "}
+            <strong>{storage.purge.jobCacheGb.toFixed(3)} GB</strong>.
           </p>
           <p>
             Workload storage is split into{" "}
@@ -709,25 +762,22 @@ function Docs({ storage }) {
         </article>
 
         <article className="doc-block danger-doc">
-          <p className="section-label">Purge all cache</p>
-          <h3>What happens if everything allocated by Salad is removed?</h3>
+          <p className="section-label">Cleanup boundary</p>
+          <h3>What does MyKitchen purge?</h3>
           <p>
-            A full cache purge can remove downloaded workload archives, stale
-            workload packages, and the Salad WSL storage folder. If those files
-            are truly cache/runtime remnants, Salad should be able to recreate
-            the runtime and download another workload when it receives one.
+            MyKitchen cleanup is intentionally narrow. It purges explicit job
+            cache folders under <code>workloads</code>, such as downloaded job
+            archives and named cache/temp folders.
           </p>
           <p>
-            The tradeoff is operational: the next job may take longer to start,
-            Salad may need to rebuild WSL/container state, and deleting while a
-            job is running can interrupt work or corrupt runtime state. Full
-            purge should be done only when Salad and `salad-enterprise-linux`
-            are stopped.
+            It does not delete logs, boot logs, WSL runtime storage, rig
+            configuration, or workload package folders just because they are
+            old. Those files can be needed for Salad to keep working or for
+            MyKitchen to validate local activity.
           </p>
           <p>
-            Logs are different: they are evidence for local activity and
-            Chopping-hour validation. This app never includes logs in normal
-            cleanup; deleting logs requires a separate confirmation because
+            Log deletion is not part of storage cleanup. If log deletion is ever
+            added, it should live behind a separate, explicit feature because
             <strong> no se puede revertir</strong>.
           </p>
         </article>
@@ -779,7 +829,8 @@ function Settings({
   storageResult,
   suite,
   onElevate,
-  onPurgeStorage,
+  onEstimateStorage,
+  onOpenPurgeDialog,
   onStopSuite,
 }) {
   return (
@@ -841,12 +892,12 @@ function Settings({
           <MetricCard
             label="Safe cleanup"
             value={`${storage.purge.safeGb.toFixed(2)} GB`}
-            detail="Download/cache candidates"
+            detail="Downloaded job cache"
           />
           <MetricCard
-            label="Obsolete cleanup"
-            value={`${storage.purge.obsoleteGb.toFixed(2)} GB`}
-            detail="Stale re-downloadable workloads"
+            label="Job cache"
+            value={`${storage.purge.jobCacheGb.toFixed(2)} GB`}
+            detail="Downloads and explicit cache folders"
           />
           <MetricCard
             label="Recent workloads"
@@ -863,19 +914,17 @@ function Settings({
         <p className="body-copy">
           Allocated path: <code>{storage.allocated.path}</code>
         </p>
+        <p className="notice">
+          Cleanup is limited to job cache under <code>{storage.workloadStorage.path}</code>.
+          It does not delete logs, WSL runtime storage, rig configuration, or workload package
+          folders just because they are old.
+        </p>
         <div className="storage-actions">
-          <button className="primary-button" type="button" onClick={() => onPurgeStorage("safe")}>
-            Safe cleanup
+          <button className="secondary-button" type="button" onClick={onEstimateStorage}>
+            Estimate job cache
           </button>
-          <button
-            className="secondary-button"
-            type="button"
-            onClick={() => onPurgeStorage("obsolete")}
-          >
-            Delete obsolete
-          </button>
-          <button className="danger-button" type="button" onClick={() => onPurgeStorage("all")}>
-            Delete all cache / WSL runtime
+          <button className="danger-button" type="button" onClick={onOpenPurgeDialog}>
+            Purge job cache
           </button>
         </div>
         {storageResult ? (
@@ -884,7 +933,7 @@ function Settings({
               `${storageResult.dryRun ? "Estimated" : "Selected"} ${storageResult.selectedGb ?? 0} GB across ${storageResult.results?.length ?? 0} candidate(s).`}
           </p>
         ) : null}
-        <div className="storage-list">
+        <SimpleBar className="storage-list">
           {storage.categories.map((category) => (
             <article className="storage-row" key={category.path}>
               <div>
@@ -896,9 +945,74 @@ function Settings({
               <strong>{category.sizeGb.toFixed(3)} GB</strong>
             </article>
           ))}
-        </div>
+        </SimpleBar>
       </section>
     </section>
+  );
+}
+
+function StorageCleanupDialog({ action, onCancel, onConfirm, storage }) {
+  if (!action) {
+    return null;
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 grid place-items-center bg-slate-950/80 px-4 py-6 backdrop-blur-sm"
+      role="presentation"
+    >
+      <section
+        aria-labelledby="storage-cleanup-title"
+        aria-modal="true"
+        className="w-full max-w-xl rounded-lg border border-amber-400/30 bg-slate-950 p-6 text-slate-100 shadow-2xl shadow-black/50"
+        role="dialog"
+      >
+        <p className="mb-2 text-xs font-black uppercase tracking-normal text-lime-300">
+          Storage cleanup
+        </p>
+        <h2 id="storage-cleanup-title" className="mb-3 text-2xl font-black text-white">
+          Purge job cache only?
+        </h2>
+        <p className="mb-4 leading-7 text-slate-300">
+          This removes explicit job cache folders under{" "}
+          <code className="rounded bg-slate-900 px-1.5 py-0.5 text-lime-200">
+            {storage.workloadStorage.path}
+          </code>
+          . Logs, boot logs, WSL runtime storage, rig configuration, and workload package folders
+          are excluded.
+        </p>
+        <div className="mb-5 grid gap-3 rounded-lg border border-slate-700 bg-slate-900/80 p-4 sm:grid-cols-2">
+          <div>
+            <span className="block text-sm font-bold text-slate-400">Estimated cache</span>
+            <strong className="mt-1 block text-2xl text-lime-300">
+              {storage.purge.jobCacheGb.toFixed(2)} GB
+            </strong>
+          </div>
+          <div>
+            <span className="block text-sm font-bold text-slate-400">Candidates</span>
+            <strong className="mt-1 block text-2xl text-white">
+              {storage.purge.candidates.length}
+            </strong>
+          </div>
+        </div>
+        <div className="flex flex-wrap justify-end gap-3">
+          <button
+            className="rounded-md border border-slate-600 bg-slate-800 px-4 py-2 font-black text-slate-100 hover:bg-slate-700"
+            type="button"
+            onClick={onCancel}
+          >
+            Cancel
+          </button>
+          <button
+            className="rounded-md bg-lime-300 px-4 py-2 font-black text-slate-950 hover:bg-lime-200"
+            type="button"
+            onClick={onConfirm}
+          >
+            Purge job cache
+          </button>
+        </div>
+      </section>
+    </div>
   );
 }
 
@@ -916,35 +1030,60 @@ function StatusBadge({ children, tone = "neutral" }) {
   return <span className={`status-badge ${tone}`}>{children}</span>;
 }
 
-function ChoppingChart({ data }) {
-  const maxHours = 24;
-
+function ChoppingChart({ data, mode }) {
   if (data.length === 0) {
     return <p className="empty-state">No local log history is available yet.</p>;
   }
 
-  return (
-    <div className="chart" role="img" aria-label="Bar chart of Chopping hours by day">
-      <div className="chart-scale" aria-hidden="true">
-        <span>24h</span>
-        <span>12h</span>
-        <span>0h</span>
-      </div>
-      {data.map((item) => {
-        const height = Math.min(Math.max((item.hours / maxHours) * 100, 2), 100);
+  const chartData = data.map((item) => ({
+    ...item,
+    label: item.date,
+    hours: Number(item.hours.toFixed(2)),
+  }));
 
-        return (
-          <div className="chart-column" key={item.isoDate ?? item.date}>
-            <div className="bar-track">
-              <span className="bar" style={{ height: `${height}%` }}>
-                <span>{item.hours.toFixed(1)}h</span>
-              </span>
-            </div>
-            <strong>{item.day}</strong>
-            <small>{item.date}</small>
-          </div>
-        );
-      })}
+  return (
+    <div className="chart" role="img" aria-label="Interactive Chopping hours chart">
+      {/* Use an explicit pixel height so ResponsiveContainer always gets a
+          non-zero measurement regardless of the parent's min-height rule. */}
+      <ResponsiveContainer height={310} width="100%">
+        {mode === "Bars" ? (
+          <BarChart data={chartData}>
+            <CartesianGrid stroke="rgba(148, 163, 184, 0.14)" vertical={false} />
+            <XAxis dataKey="label" stroke="#7d8b9f" tickLine={false} />
+            <YAxis stroke="#7d8b9f" tickFormatter={(value) => `${value}h`} />
+            <Tooltip content={<ChartTooltip />} cursor={{ fill: "rgba(158, 240, 178, 0.08)" }} />
+            <Bar dataKey="hours" fill="#8cf5a1" radius={[6, 6, 0, 0]} />
+          </BarChart>
+        ) : (
+          <AreaChart data={chartData}>
+            <CartesianGrid stroke="rgba(148, 163, 184, 0.14)" vertical={false} />
+            <XAxis dataKey="label" stroke="#7d8b9f" tickLine={false} />
+            <YAxis stroke="#7d8b9f" tickFormatter={(value) => `${value}h`} />
+            <Tooltip content={<ChartTooltip />} />
+            <Area
+              activeDot={{ r: 5, stroke: "#fbfff8", strokeWidth: 2 }}
+              dataKey="hours"
+              fill="rgba(74, 222, 128, 0.18)"
+              stroke="#8cf5a1"
+              strokeWidth={3}
+              type="monotone"
+            />
+          </AreaChart>
+        )}
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+function ChartTooltip({ active, label, payload }) {
+  if (!active || !payload?.length) {
+    return null;
+  }
+
+  return (
+    <div className="chart-tooltip">
+      <strong>{label}</strong>
+      <span>{Number(payload[0].value).toFixed(2)}h confirmed</span>
     </div>
   );
 }
@@ -1021,6 +1160,17 @@ function formatWorkloadLabel(workload) {
   return workload.label ?? "Unknown";
 }
 
+function formatMachineLabel(machine) {
+  const hostname = machine?.hostname ?? "This PC";
+  const saladId = machine?.saladId;
+
+  if (saladId) {
+    return `${hostname} · Salad ${saladId}`;
+  }
+
+  return `${hostname} · local fallback ${machine?.localId ?? machine?.id ?? "unknown"}`;
+}
+
 function describeWorkload(workload) {
   if (workload.type === "mining" || workload.type === "historical-mining") {
     return `GPU proof-of-work workload · ${workload.confidence}`;
@@ -1035,6 +1185,35 @@ function describeWorkload(workload) {
   }
 
   return `${workload.source} · ${workload.confidence}`;
+}
+
+function extractEstimatedEarnings(summary) {
+  const candidates = [
+    summary.estimatedEarningsUsd,
+    summary.estimatedEarnedUsd,
+    summary.earningsUsd,
+    summary.rewardsUsd,
+    summary.saladBowl?.estimatedEarningsUsd,
+    summary.saladBowl?.earningsUsd,
+    summary.saladBowl?.balanceUsd,
+  ];
+  const amount = candidates.find((value) => Number.isFinite(Number(value)));
+
+  if (amount === undefined) {
+    return {
+      value: "Not available",
+      detail: "No earnings field is exposed by the current helper payload.",
+    };
+  }
+
+  return {
+    value: new Intl.NumberFormat(undefined, {
+      style: "currency",
+      currency: "USD",
+      maximumFractionDigits: 2,
+    }).format(Number(amount)),
+    detail: "Extracted from SaladBowl payload.",
+  };
 }
 
 createRoot(document.getElementById("root")).render(

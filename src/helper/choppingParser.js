@@ -11,6 +11,7 @@ export function calculateChoppingSummary(logWindows, now = new Date(), days = 7)
   const signals = collectMiningSignals(logWindows);
   const intervals = buildIntervals(signals);
   const history = buildHistory(intervals, now, days);
+  const hourlyHistory = buildHourlyHistory(intervals, now);
   const totalHours = history.reduce((total, item) => total + item.hours, 0);
   const last24Hours = calculateWindowHours(intervals, addHours(now, -24), now);
   const rolling7DaysHours = calculateWindowHours(intervals, addDays(now, -7), now);
@@ -39,6 +40,7 @@ export function calculateChoppingSummary(logWindows, now = new Date(), days = 7)
       confidence: interval.confidence,
     })),
     history,
+    hourlyHistory,
     lastSignalAt: signals.at(-1)?.timestamp.toISOString() ?? null,
   };
 }
@@ -172,6 +174,32 @@ function buildHistory(intervals, now, dayCount) {
   }
 
   return days;
+}
+
+// Produces 24 hourly buckets for the current local day (00:00 – 23:59).
+// Each bucket label is "HH:00" in local time.
+export function buildHourlyHistory(intervals, now = new Date()) {
+  const todayStart = startOfLocalDay(now);
+  const buckets = [];
+
+  for (let h = 0; h < 24; h += 1) {
+    const bucketStart = addHours(todayStart, h);
+    const bucketEnd = addHours(todayStart, h + 1);
+    const seconds = intervals.reduce(
+      (total, interval) => total + overlapSeconds(interval, bucketStart, bucketEnd),
+      0,
+    );
+    const label = String(h).padStart(2, "0") + ":00";
+
+    buckets.push({
+      day: label,
+      date: label,
+      isoDate: `${formatLocalDate(todayStart)}T${label}`,
+      hours: roundHours(seconds / 3600),
+    });
+  }
+
+  return buckets;
 }
 
 function overlapSeconds(interval, windowStart, windowEnd) {

@@ -25,6 +25,7 @@ const allowedOrigins = new Set([
   "http://127.0.0.1:5173",
   "http://localhost:5173",
 ]);
+const localDevOriginPattern = /^http:\/\/(?:127\.0\.0\.1|localhost):517\d$/;
 
 const saladProcessNames = new Set([
   "salad.exe",
@@ -47,7 +48,7 @@ const historyCache = new Map();
 if (
   await ensureElevatedProcess({
     argv: [fileURLToPath(import.meta.url), ...process.argv.slice(2)],
-    label: "SaladChoppingHours elevated helper",
+    label: "MyKitchen elevated helper",
     forceRelaunch: process.env.SALAD_FOREGROUND !== "1",
     relaunchEnv: {
       SALAD_HELPER_HOST: host,
@@ -56,14 +57,14 @@ if (
     },
   })
 ) {
-  process.stdout.write("Requested elevated SaladChoppingHours helper through Windows UAC.\n");
+  process.stdout.write("Requested elevated MyKitchen helper through Windows UAC.\n");
   process.exit(0);
 }
 
 const server = createServer(async (request, response) => {
   const origin = request.headers.origin;
 
-  if (origin && allowedOrigins.has(origin)) {
+  if (origin && (allowedOrigins.has(origin) || localDevOriginPattern.test(origin))) {
     response.setHeader("Access-Control-Allow-Origin", origin);
   }
 
@@ -94,7 +95,7 @@ const server = createServer(async (request, response) => {
 server.on("error", (error) => {
   if (error?.code === "EADDRINUSE") {
     process.stdout.write(
-      `SaladChoppingHours helper port ${host}:${port} is already in use; reusing the existing listener if it is healthy.\n`,
+      `MyKitchen helper port ${host}:${port} is already in use; reusing the existing listener if it is healthy.\n`,
     );
     process.exit(0);
     return;
@@ -105,7 +106,7 @@ server.on("error", (error) => {
 
 server.listen(port, host, () => {
   process.stdout.write(
-    `SaladChoppingHours helper listening on http://${host}:${port}\n`,
+    `MyKitchen helper listening on http://${host}:${port}\n`,
   );
 });
 
@@ -115,7 +116,7 @@ async function routeRequest(request, response) {
   if (url.pathname === "/health") {
     sendJson(response, 200, {
       ok: true,
-      service: "salad-chopping-hours-helper",
+      service: "mykitchen-helper",
       installPath,
     });
     return;
@@ -124,7 +125,7 @@ async function routeRequest(request, response) {
   if (url.pathname === "/") {
     sendJson(response, 200, {
       ok: true,
-      service: "salad-chopping-hours-helper",
+      service: "mykitchen-helper",
       installPath,
       endpoints: [
         "/health",
@@ -160,7 +161,7 @@ async function routeRequest(request, response) {
     sendJson(response, 200, {
       stopping: Boolean(shutdownHandler),
       message: shutdownHandler
-        ? "Stopping managed SaladChoppingHours suite."
+        ? "Stopping managed MyKitchen suite."
         : "No managed suite shutdown handler is registered.",
     });
 
@@ -209,9 +210,6 @@ async function routeRequest(request, response) {
       await purgeSaladStorage(installPath, {
         mode: url.searchParams.get("mode") ?? "safe",
         dryRun: url.searchParams.get("dryRun") !== "false",
-        includeLogs: url.searchParams.get("includeLogs") === "true",
-        confirm: url.searchParams.get("confirm") ?? "",
-        logConfirm: url.searchParams.get("logConfirm") ?? "",
       }),
     );
     return;
@@ -223,8 +221,9 @@ async function routeRequest(request, response) {
   }
 
   if (url.pathname === "/salad/chopping-history") {
-    const days = Number.parseInt(url.searchParams.get("days") ?? "7", 10);
-    sendJson(response, 200, await getChoppingHistory({ days }));
+    // Always return the full 365-day history so the client can filter locally.
+    // The `days` param is kept for backward compatibility but ignored.
+    sendJson(response, 200, await getChoppingHistory({ days: 365 }));
     return;
   }
 

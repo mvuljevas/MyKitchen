@@ -5,6 +5,9 @@ export const emptyStatus = {
   installPathExists: null,
   machine: {
     id: "unavailable",
+    localId: "unavailable",
+    saladId: null,
+    idSource: "offline",
     hostname: "This PC",
     platform: "unknown",
   },
@@ -167,6 +170,8 @@ export const emptyStorage = {
   purge: {
     safeBytes: 0,
     safeGb: 0,
+    jobCacheBytes: 0,
+    jobCacheGb: 0,
     obsoleteBytes: 0,
     obsoleteGb: 0,
     allBytes: 0,
@@ -181,6 +186,7 @@ export const emptyDashboard = {
   helperOnline: false,
   status: emptyStatus,
   choppingHistory: [],
+  hourlyHistory: [],
   choppingSummary: emptyChoppingSummary,
   logActivity: emptyLogActivitySummary,
   rig: emptyRig,

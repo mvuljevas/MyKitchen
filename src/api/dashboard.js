@@ -11,17 +11,21 @@ const helperBaseUrl = import.meta.env.VITE_HELPER_URL ?? "http://127.0.0.1:48173
 
 export async function loadDashboardData() {
   try {
+    // Always fetch the full 365-day history. The client slices the array for
+    // Week / Month / Year views, and uses hourlyHistory for the Day view.
+    // This means switching chart ranges requires no additional network requests.
+    const historyPath = `/salad/chopping-history`;
     const [health, status, logs, history, workload, report, rig, storage, suite] =
       await Promise.all([
-        fetchJson("/health"),
-        fetchJson("/salad/status"),
-        fetchJson("/salad/logs"),
-        fetchJson("/salad/chopping-history"),
-        fetchJson("/salad/workload/current"),
-        fetchJson("/salad/report"),
-        fetchJson("/salad/rig/config"),
-        fetchOptionalJson("/salad/storage"),
-        fetchOptionalJson("/suite/status"),
+        fetchJson("/health", { timeoutMs: 4000 }),
+        fetchOptionalJson("/salad/status", { timeoutMs: 4000 }),
+        fetchOptionalJson("/salad/logs", { timeoutMs: 5000 }),
+        fetchJson(historyPath, { timeoutMs: 10000 }),
+        fetchOptionalJson("/salad/workload/current", { timeoutMs: 5000 }),
+        fetchOptionalJson("/salad/report", { timeoutMs: 5000 }),
+        fetchOptionalJson("/salad/rig/config", { timeoutMs: 6000 }),
+        fetchOptionalJson("/salad/storage", { timeoutMs: 6000 }),
+        fetchOptionalJson("/suite/status", { timeoutMs: 3000 }),
       ]);
 
     const choppingSummary = normalizeChoppingSummary(history);
@@ -31,16 +35,17 @@ export async function loadDashboardData() {
       source: "helper",
       helperOnline: health.ok === true,
       status: normalizeStatus(status),
-      workload,
+      workload: workload ?? emptyDashboard.workload,
       choppingHistory: history.history ?? [],
+      hourlyHistory: history.hourlyHistory ?? [],
       choppingSummary,
       logActivity: normalizeLogActivity(history.logActivity),
       rig: normalizeRig(rig),
       storage: normalizeStorage(storage),
       suite: suite ?? emptyDashboard.suite,
       report,
-      recentEvents: buildRecentEvents(status, logs.logs ?? [], choppingSummary),
-      logs: logs.logs ?? [],
+      recentEvents: buildRecentEvents(normalizeStatus(status), logs?.logs ?? [], choppingSummary),
+      logs: logs?.logs ?? [],
     };
   } catch (error) {
     return {
@@ -71,14 +76,6 @@ export async function requestElevatedHelper() {
   return fetchJson("/salad/elevate");
 }
 
-export async function requestRigOptimizationPlan() {
-  return fetchJson("/salad/rig/optimize");
-}
-
-export async function applyRigOptimizationAction(action) {
-  return fetchJson(`/salad/rig/optimize/apply?action=${encodeURIComponent(action)}`);
-}
-
 export async function requestSuiteShutdown() {
   return fetchJson("/suite/shutdown");
 }
@@ -86,44 +83,40 @@ export async function requestSuiteShutdown() {
 export async function requestStoragePurge({
   mode,
   dryRun = true,
-  includeLogs = false,
-  confirm = "",
-  logConfirm = "",
 }) {
   const params = new URLSearchParams({
     mode,
     dryRun: String(dryRun),
-    includeLogs: String(includeLogs),
   });
-
-  if (confirm) {
-    params.set("confirm", confirm);
-  }
-
-  if (logConfirm) {
-    params.set("logConfirm", logConfirm);
-  }
 
   return fetchJson(`/salad/storage/purge?${params.toString()}`);
 }
 
-async function fetchJson(path) {
-  const response = await fetch(`${helperBaseUrl}${path}`, {
-    headers: {
-      Accept: "application/json",
-    },
-  });
+async function fetchJson(path, { timeoutMs = 8000 } = {}) {
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), timeoutMs);
 
-  if (!response.ok) {
-    throw new Error(`Helper request failed: ${response.status}`);
+  try {
+    const response = await fetch(`${helperBaseUrl}${path}`, {
+      headers: {
+        Accept: "application/json",
+      },
+      signal: controller.signal,
+    });
+
+    if (!response.ok) {
+      throw new Error(`Helper request failed: ${response.status}`);
+    }
+
+    return await response.json();
+  } finally {
+    window.clearTimeout(timeout);
   }
-
-  return response.json();
 }
 
-async function fetchOptionalJson(path) {
+async function fetchOptionalJson(path, options) {
   try {
-    return await fetchJson(path);
+    return await fetchJson(path, options);
   } catch {
     return null;
   }
@@ -221,27 +214,27 @@ function normalizeStorage(storage) {
 
 function normalizeStatus(status) {
   return {
-    installPath: status.installPath ?? emptyStatus.installPath,
-    installPathExists: status.installPathExists ?? false,
-    process: status.process ?? {
+    installPath: status?.installPath ?? emptyStatus.installPath,
+    installPathExists: status?.installPathExists ?? false,
+    process: status?.process ?? {
       label: "Unknown",
       state: "unknown",
       detected: false,
     },
-    workload: status.workload ?? {
+    workload: status?.workload ?? {
       label: "Unknown",
       state: "unknown",
       detected: false,
     },
-    service: status.service ?? {
+    service: status?.service ?? {
       label: "Unknown",
       state: "unknown",
       detected: false,
     },
-    machine: status.machine ?? emptyStatus.machine,
-    elevation: status.elevation ?? emptyStatus.elevation,
-    wsl: status.wsl ?? emptyStatus.wsl,
-    lastLogRead: status.lastLogRead ?? "No logs read",
+    machine: status?.machine ?? emptyStatus.machine,
+    elevation: status?.elevation ?? emptyStatus.elevation,
+    wsl: status?.wsl ?? emptyStatus.wsl,
+    lastLogRead: status?.lastLogRead ?? "No logs read",
   };
 }
 
