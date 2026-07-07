@@ -173,26 +173,26 @@ Resolution path:
 - Add explicit confirmation flows per action, starting with reversible Windows
   power-plan changes and keeping elevated operations isolated to the helper.
 
-## TD-011: WSL VHD Cleanup Needs Runtime Coordination
+## TD-011: Aggressive Storage Cleanup Removed
 
-Status: open.
+Status: resolved.
 
 Context:
 
 - Salad container storage is reported through the WSL `ext4.vhdx` allocation.
-- Full cleanup can remove the Salad WSL storage folder after explicit
-  confirmation, but it does not yet coordinate stopping Salad services or WSL.
+- Earlier cleanup planning allowed overly broad runtime cleanup and separate
+  log deletion confirmation.
 
 Impact:
 
-- Users can identify the real disk consumer and choose guarded cleanup, but a
-  full WSL cleanup should be performed only when Salad is idle.
+- Removing WSL runtime storage, logs, configuration, or package folders can
+  break Salad or remove evidence needed for Chopping-hour validation.
 
 Resolution path:
 
-- Before enabling non-dry-run full cleanup from the UI, detect active Salad/WSL
-  runtime state and offer a controlled stop flow or block the action with a
-  clear reason.
+- Cleanup is now limited to explicit job cache folders under `workloads`.
+  Logs, boot logs, WSL runtime storage, rig configuration, and workload package
+  folders are excluded from purge candidates.
 
 ## TD-008: Multi-PC Totals Need Import Workflow
 

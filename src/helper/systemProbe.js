@@ -9,6 +9,7 @@ const execFileAsync = promisify(execFile);
 const saladWslDistro = "salad-enterprise-linux";
 
 export async function inspectSystem() {
+  const localId = getMachineId();
   const [windowsProcesses, wsl, elevation] = await Promise.all([
     listWindowsProcesses(),
     inspectWsl(),
@@ -17,7 +18,10 @@ export async function inspectSystem() {
 
   return {
     machine: {
-      id: getMachineId(),
+      id: localId,
+      localId,
+      saladId: null,
+      idSource: "local-fallback",
       hostname: os.hostname(),
       platform: os.platform(),
     },
@@ -30,7 +34,7 @@ export async function inspectSystem() {
 export async function requestElevatedHelper() {
   await relaunchElevatedNode({
     argv: [fileURLToPath(new URL("./server.js", import.meta.url))],
-    label: "SaladChoppingHours elevated helper",
+    label: "MyKitchen elevated helper",
     relaunchEnv: {
       SALAD_HELPER_HOST: process.env.SALAD_HELPER_HOST ?? "127.0.0.1",
       SALAD_HELPER_PORT: process.env.SALAD_HELPER_PORT ?? "48173",

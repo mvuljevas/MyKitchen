@@ -22,7 +22,7 @@ This React/Vite project uses the AGENTS workflow and `lean-context`.
 
 ## Project Boundary
 
-SaladChoppingHours is intended to become a local web application that analyzes a
+MyKitchen is intended to become a local web application that analyzes a
 Salad installation directory and computes Chopping hours automatically.
 
 The repository currently contains the React/Vite template shell. Do not

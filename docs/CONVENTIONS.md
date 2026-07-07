@@ -4,11 +4,11 @@ This document defines repository-wide conventions.
 
 ## Repository Purpose
 
-This repository will contain a local web app that calculates Salad Chopping
-hours from local Salad installation data.
+This repository contains MyKitchen, a local web app that calculates Salad
+Chopping hours from local Salad installation data.
 
-The repository currently stores workflow governance only. Product code should
-not be added until the stack and first implementation block are confirmed.
+The repository now includes the React/Vite UI, local helper, parser, rig
+inspection, storage inspection, and guarded job-cache cleanup.
 
 ## Documentation Principles
 

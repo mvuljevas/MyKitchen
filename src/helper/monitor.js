@@ -4,11 +4,11 @@ import { ensureElevatedProcess } from "./elevation.js";
 if (
   await ensureElevatedProcess({
     argv: [fileURLToPath(import.meta.url), ...process.argv.slice(2)],
-    label: "SaladChoppingHours elevated monitor",
+    label: "MyKitchen elevated monitor",
     forceRelaunch: process.env.SALAD_FOREGROUND !== "1",
   })
 ) {
-  process.stdout.write("Requested elevated SaladChoppingHours monitor through Windows UAC.\n");
+  process.stdout.write("Requested elevated MyKitchen monitor through Windows UAC.\n");
   process.exit(0);
 }
 
@@ -17,7 +17,7 @@ const pollMs = Number.parseInt(process.env.SALAD_MONITOR_POLL_MS ?? "3000", 10);
 
 let previousSignature = "";
 
-process.stdout.write(`SaladChoppingHours monitor connected to ${helperBaseUrl}\n`);
+process.stdout.write(`MyKitchen monitor connected to ${helperBaseUrl}\n`);
 process.stdout.write("Press Ctrl+C to stop.\n\n");
 
 await poll();

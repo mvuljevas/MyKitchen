@@ -1,10 +1,10 @@
 # Architecture
 
-This document records the current technical direction for SaladChoppingHours.
+This document records the current technical direction for MyKitchen.
 
 ## Current Decision
 
-SaladChoppingHours will use a local React/Vite browser UI backed by a small
+MyKitchen will use a local React/Vite browser UI backed by a small
 local helper process. The helper is read-only for observation endpoints and has
 narrow, guarded maintenance endpoints for explicit cleanup actions.
 
@@ -111,8 +111,9 @@ Storage inspection is implemented as a purpose-built Salad maintenance API.
 `GET /salad/storage` reports top-level Salad storage, largest files, the WSL
 `ext4.vhdx` allocation, and cleanup candidates. `GET /salad/storage/purge`
 supports dry-run estimates by default and only deletes selected candidates when
-called with `dryRun=false`. Logs remain protected unless log deletion is
-explicitly requested and separately confirmed.
+called with `dryRun=false`. Cleanup candidates are limited to explicit job
+cache folders under `workloads`; logs, boot logs, WSL runtime storage, rig
+configuration, and workload package folders are not purge candidates.
 
 ## Deferred Decisions
 
@@ -121,5 +122,5 @@ explicitly requested and separately confirmed.
 - Whether to add authentication for localhost access.
 - How to store user-selected Salad path preferences.
 - Whether non-miner Salad logs should refine Chopping interval boundaries.
-- Whether full WSL cache cleanup should stop Salad/WSL automatically before
-  deleting the container storage folder.
+- Whether a separate log-deletion feature is ever needed; it should not be part
+  of normal storage cleanup.

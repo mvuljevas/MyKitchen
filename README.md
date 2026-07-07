@@ -1,6 +1,6 @@
-# SaladChoppingHours
+# MyKitchen
 
-SaladChoppingHours is a local React/Vite web application for reading a Salad
+MyKitchen is a local React/Vite web application for reading a Salad
 installation directory, detecting whether Salad is active, and calculating
 weekly Chopping time toward Star Chef qualification.
 
@@ -33,22 +33,26 @@ signals, and unreadable logs.
 The dashboard also shows inferred rig log activity from all Salad log
 timestamps. This helps explain local rig activity without counting it as
 confirmed Star Chef progress unless recognized Chopping signals are present.
+The Overview dashboard now refreshes periodically in the background and uses a
+priority cockpit layout that puts current work, rolling Chopping progress, and
+source-labelled earnings availability before secondary evidence.
+It uses interactive Recharts graphs with day, week, month, and year windows,
+and the main Chopping total is sourced from the parser total for the selected
+window rather than being confused with the separate last-24-hours metric.
 The Rig view inspects Windows, WSL, CPU, memory, GPU, power plan, Salad
-processes, and helper elevation, then generates a maximum-availability
-optimization plan with explicit actions for supported safe changes.
+processes, and helper elevation without showing suggested optimization actions.
 
 The Settings view can inspect Salad disk usage, including the WSL `ext4.vhdx`
-container disk image used by container jobs. Cleanup is split into safe cache,
-obsolete re-downloadable workload folders, and full cache/WSL cleanup. Logs are
-protected by default and require a separate irreversible confirmation before
-deletion. The storage view also separates workload downloads, recent workload
+container disk image used by container jobs. Cleanup is limited to explicit job
+cache folders under `workloads`; it does not delete logs, boot logs, WSL runtime
+storage, rig configuration, or workload package folders just because they are
+old. The storage view also separates workload downloads, recent workload
 packages, and obsolete workload packages so cache usage is not confused with
 logs or weekly Chopping evidence.
 
 The Docs view records the local Salad storage findings and links to the
-original Salad and Microsoft WSL references. It explains that full cache/WSL
-purge may force Salad to rebuild or re-download runtime data and should only be
-used when Salad and its WSL runtime are stopped.
+original Salad and Microsoft WSL references. It explains why WSL storage can
+grow while keeping destructive cleanup focused only on job cache.
 
 ## Requirements
 

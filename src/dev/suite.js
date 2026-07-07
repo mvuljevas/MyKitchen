@@ -15,15 +15,15 @@ async function main() {
   if (
     await ensureElevatedProcess({
       argv: [fileURLToPath(import.meta.url), ...process.argv.slice(2)],
-      label: "SaladChoppingHours elevated suite",
+      label: "MyKitchen elevated suite",
       forceRelaunch: process.env.SALAD_FOREGROUND !== "1",
     })
   ) {
-    process.stdout.write("Requested elevated SaladChoppingHours suite through Windows UAC.\n");
+    process.stdout.write("Requested elevated MyKitchen suite through Windows UAC.\n");
     const started = await waitForUrl(appUrl, 20000);
 
     if (started) {
-      process.stdout.write("SaladChoppingHours suite is running in the background.\n");
+      process.stdout.write("MyKitchen suite is running in the background.\n");
     } else {
       process.stdout.write(
         "Could not confirm the elevated suite started. Run with SALAD_FOREGROUND=1 for diagnostics.\n",
@@ -32,7 +32,7 @@ async function main() {
     return;
   }
 
-  process.stdout.write("Starting SaladChoppingHours local suite...\n");
+  process.stdout.write("Starting MyKitchen local suite...\n");
   process.stdout.write("Helper: http://127.0.0.1:48173/health\n");
 
   let existingHelper = await isUrlHealthy("http://127.0.0.1:48173/health");
@@ -49,7 +49,7 @@ async function main() {
   }
 
   if (existingHelper && existingUi) {
-    process.stdout.write("Existing SaladChoppingHours suite detected; opening dashboard.\n");
+    process.stdout.write("Existing MyKitchen suite detected; opening dashboard.\n");
     await openBrowser(appUrl);
     return;
   }
@@ -57,7 +57,7 @@ async function main() {
   let helperServer = null;
 
   if (existingHelper) {
-    process.stdout.write("Existing SaladChoppingHours helper detected; reusing it.\n");
+    process.stdout.write("Existing MyKitchen helper detected; reusing it.\n");
   } else {
     helperServer = await import("../helper/server.js");
   }
@@ -93,7 +93,7 @@ async function main() {
 }
 
 async function stopSuite() {
-  process.stdout.write("\nStopping SaladChoppingHours local suite...\n");
+  process.stdout.write("\nStopping MyKitchen local suite...\n");
   await vite?.close();
   process.exit(0);
 }

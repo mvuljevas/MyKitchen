@@ -1,6 +1,6 @@
 # Security
 
-SaladChoppingHours reads local user data from a Salad installation. The app
+MyKitchen reads local user data from a Salad installation. The app
 must treat that data as private and local by default.
 
 ## Security Model
@@ -81,8 +81,9 @@ The helper API should:
 - `GET /salad/storage` reports Salad disk usage, including the WSL `ext4.vhdx`
   allocation used by container jobs.
 - `GET /salad/storage/purge` defaults to dry-run estimates. Actual deletion
-  requires `dryRun=false`; full cache/WSL cleanup requires
-  `confirm=DELETE_ALL_SALAD_CACHE`; log deletion additionally requires
-  `includeLogs=true` and `logConfirm=DELETE_LOGS`.
-- Logs are protected by default because deleting them removes local evidence
-  used to validate Chopping-hour history.
+  requires `dryRun=false` and is limited to explicit job cache folders under
+  `workloads`.
+- Logs, boot logs, WSL runtime storage, rig configuration, and workload package
+  folders are not purge candidates. Log deletion should remain a separate
+  feature if it is ever added because deleting logs removes local evidence used
+  to validate Chopping-hour history.

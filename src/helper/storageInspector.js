@@ -2,7 +2,8 @@ import { readdir, rm, stat } from "node:fs/promises";
 import path from "node:path";
 
 const logNames = new Set(["logs", "boot-logs"]);
-const safeCacheNames = new Set(["_downloads", "cache", "tmp", "temp"]);
+const protectedNames = new Set([...logNames, "config", "settings"]);
+const jobCacheNames = new Set(["_downloads", "cache", "tmp", "temp"]);
 
 export async function inspectSaladStorage(installPath) {
   const rootStats = await statOrNull(installPath);
@@ -29,7 +30,7 @@ export async function inspectSaladStorage(installPath) {
       sizeBytes,
       sizeGb: roundGb(sizeBytes),
       lastModifiedAt: ((await statOrNull(entryPath))?.mtime ?? null)?.toISOString() ?? null,
-      protected: logNames.has(entry.name.toLowerCase()),
+      protected: protectedNames.has(entry.name.toLowerCase()),
       purgeModes: getPurgeModes(entry.name, entryPath),
     });
   }
@@ -56,9 +57,9 @@ export async function inspectSaladStorage(installPath) {
     workloadStorage,
     purge: summarizeCandidates(candidates),
     notes: [
-      "Logs are protected by default and are never deleted unless includeLogs=true and confirm=DELETE_LOGS are both provided.",
-      "Safe mode only removes re-downloadable cache folders such as workloads/_downloads.",
-      "Obsolete mode adds stale re-downloadable workload folders. WSL VHD deletion is only included by all mode with explicit confirmation.",
+      "Cleanup only targets explicit job cache folders under workloads.",
+      "Logs, boot logs, WSL storage, configuration, and rig-specific files are never purge candidates.",
+      "Package folders are not deleted just because they are old; only named cache/download/temp folders are eligible.",
     ],
   };
 }
@@ -106,22 +107,11 @@ async function inspectWorkloadStorage(installPath) {
 }
 
 export async function purgeSaladStorage(installPath, options = {}) {
-  const mode = options.mode ?? "safe";
+  const mode = normalizePurgeMode(options.mode ?? "safe");
   const dryRun = options.dryRun !== false;
-  const includeLogs = options.includeLogs === true;
-  const confirm = options.confirm ?? "";
-  const logConfirm = options.logConfirm ?? "";
   const candidates = await buildPurgeCandidates(installPath);
   const selected = candidates.filter((candidate) => {
     if (!candidate.modes.includes(mode)) {
-      return false;
-    }
-
-    if (candidate.protected && !(includeLogs && logConfirm === "DELETE_LOGS")) {
-      return false;
-    }
-
-    if (candidate.dangerous && confirm !== "DELETE_ALL_SALAD_CACHE") {
       return false;
     }
 
@@ -162,7 +152,6 @@ export async function purgeSaladStorage(installPath, options = {}) {
   return {
     mode,
     dryRun,
-    includeLogs,
     deletedBytes: results
       .filter((result) => result.deleted)
       .reduce((total, result) => total + result.sizeBytes, 0),
@@ -177,61 +166,44 @@ async function buildPurgeCandidates(installPath) {
   const candidates = [];
   const workloadsPath = path.join(installPath, "workloads");
   const downloadsPath = path.join(workloadsPath, "_downloads");
-  const wslPath = path.join(installPath, "wsl");
-  const logsPath = path.join(installPath, "logs");
-  const bootLogsPath = path.join(installPath, "boot-logs");
 
   await addCandidate(candidates, downloadsPath, {
     label: "Downloaded workload archives",
-    kind: "cache",
-    modes: ["safe", "obsolete", "all"],
+    kind: "job-cache",
+    modes: ["safe", "job-cache"],
     protected: false,
-    dangerous: false,
   });
 
-  for (const entry of await safeReaddir(workloadsPath)) {
-    if (!entry.isDirectory() || entry.name === "_downloads") {
+  await collectNestedJobCacheCandidates(workloadsPath, candidates, workloadsPath);
+
+  return candidates.sort((left, right) => right.sizeBytes - left.sizeBytes);
+}
+
+async function collectNestedJobCacheCandidates(currentPath, candidates, workloadsPath) {
+  for (const entry of await safeReaddir(currentPath)) {
+    if (!entry.isDirectory()) {
       continue;
     }
 
-    const entryPath = path.join(workloadsPath, entry.name);
-    const entryStats = await statOrNull(entryPath);
-    const ageDays = entryStats ? (Date.now() - entryStats.mtime.getTime()) / 86400000 : 0;
+    const entryPath = path.join(currentPath, entry.name);
+    const normalizedName = entry.name.toLowerCase();
 
-    if (ageDays >= 3) {
-      await addCandidate(candidates, entryPath, {
-        label: `Stale workload package: ${entry.name}`,
-        kind: "workload",
-        modes: ["obsolete", "all"],
-        protected: false,
-        dangerous: false,
-      });
+    if (normalizedName === "_downloads") {
+      continue;
     }
+
+    if (jobCacheNames.has(normalizedName)) {
+      await addCandidate(candidates, entryPath, {
+        label: `Job cache: ${path.relative(workloadsPath, entryPath)}`,
+        kind: "job-cache",
+        modes: ["job-cache"],
+        protected: false,
+      });
+      continue;
+    }
+
+    await collectNestedJobCacheCandidates(entryPath, candidates, workloadsPath);
   }
-
-  await addCandidate(candidates, wslPath, {
-    label: "WSL container storage",
-    kind: "wsl",
-    modes: ["all"],
-    protected: false,
-    dangerous: true,
-  });
-  await addCandidate(candidates, logsPath, {
-    label: "Salad logs",
-    kind: "logs",
-    modes: ["all"],
-    protected: true,
-    dangerous: false,
-  });
-  await addCandidate(candidates, bootLogsPath, {
-    label: "Salad boot logs",
-    kind: "logs",
-    modes: ["all"],
-    protected: true,
-    dangerous: false,
-  });
-
-  return candidates.sort((left, right) => right.sizeBytes - left.sizeBytes);
 }
 
 async function addCandidate(candidates, targetPath, metadata) {
@@ -265,13 +237,17 @@ async function getPathSize(targetPath) {
 }
 
 function summarizeCandidates(candidates) {
+  const jobCacheBytes = sumMode(candidates, "job-cache");
+
   return {
     safeBytes: sumMode(candidates, "safe"),
     safeGb: roundGb(sumMode(candidates, "safe")),
-    obsoleteBytes: sumMode(candidates, "obsolete"),
-    obsoleteGb: roundGb(sumMode(candidates, "obsolete")),
-    allBytes: sumMode(candidates, "all"),
-    allGb: roundGb(sumMode(candidates, "all")),
+    jobCacheBytes,
+    jobCacheGb: roundGb(jobCacheBytes),
+    obsoleteBytes: jobCacheBytes,
+    obsoleteGb: roundGb(jobCacheBytes),
+    allBytes: jobCacheBytes,
+    allGb: roundGb(jobCacheBytes),
     candidates,
   };
 }
@@ -294,11 +270,15 @@ function classifyEntry(name, targetPath) {
     return "logs";
   }
 
+  if (protectedNames.has(normalizedName)) {
+    return "protected-config";
+  }
+
   if (normalizedName === "workloads") {
     return "workloads";
   }
 
-  if (safeCacheNames.has(normalizedName)) {
+  if (jobCacheNames.has(normalizedName)) {
     return "cache";
   }
 
@@ -310,18 +290,22 @@ function getPurgeModes(name, targetPath) {
   const normalizedPath = targetPath.toLowerCase();
 
   if (normalizedPath.includes("\\workloads\\_downloads")) {
-    return ["safe", "obsolete", "all"];
+    return ["safe", "job-cache"];
   }
 
-  if (normalizedName === "wsl") {
-    return ["all"];
-  }
-
-  if (logNames.has(normalizedName)) {
-    return ["all-with-log-confirmation"];
+  if (normalizedPath.includes("\\workloads\\") && jobCacheNames.has(normalizedName)) {
+    return ["job-cache"];
   }
 
   return [];
+}
+
+function normalizePurgeMode(mode) {
+  if (mode === "obsolete" || mode === "all") {
+    return "job-cache";
+  }
+
+  return mode;
 }
 
 async function listLargestFiles(root, limit) {
@@ -420,6 +404,8 @@ function emptyStorage(installPath, note) {
       downloadsGb: 0,
       currentBytes: 0,
       currentGb: 0,
+      jobCacheBytes: 0,
+      jobCacheGb: 0,
       obsoleteBytes: 0,
       obsoleteGb: 0,
       packageCount: 0,
@@ -429,6 +415,8 @@ function emptyStorage(installPath, note) {
     purge: {
       safeBytes: 0,
       safeGb: 0,
+      jobCacheBytes: 0,
+      jobCacheGb: 0,
       obsoleteBytes: 0,
       obsoleteGb: 0,
       allBytes: 0,
