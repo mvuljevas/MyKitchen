@@ -1,6 +1,8 @@
 import { execFile } from "node:child_process";
 import crypto from "node:crypto";
+import { access, readdir, readFile } from "node:fs/promises";
 import os from "node:os";
+import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { inspectElevation, relaunchElevatedNode } from "./elevation.js";
@@ -10,18 +12,19 @@ const saladWslDistro = "salad-enterprise-linux";
 
 export async function inspectSystem() {
   const localId = getMachineId();
-  const [windowsProcesses, wsl, elevation] = await Promise.all([
+  const [windowsProcesses, wsl, elevation, saladId] = await Promise.all([
     listWindowsProcesses(),
     inspectWsl(),
     inspectElevation(),
+    findSaladId(),
   ]);
 
   return {
     machine: {
       id: localId,
       localId,
-      saladId: null,
-      idSource: "local-fallback",
+      saladId,
+      idSource: saladId ? "salad-evidence" : "local-fallback",
       hostname: os.hostname(),
       platform: os.platform(),
     },
@@ -29,6 +32,48 @@ export async function inspectSystem() {
     windowsProcesses,
     wsl,
   };
+}
+
+async function findSaladId() {
+  const installPath = path.resolve(
+    process.env.SALAD_INSTALL_PATH ?? "C:\\ProgramData\\Salad",
+  );
+  const logsDir = path.join(installPath, "logs");
+
+  if (!(await pathExists(logsDir))) {
+    return null;
+  }
+
+  try {
+    const entries = await readdir(logsDir, { withFileTypes: true });
+    const logFiles = entries
+      .filter((entry) => entry.isFile() && entry.name.startsWith("log-") && entry.name.endsWith(".txt"))
+      .map((entry) => entry.name)
+      .sort((a, b) => b.localeCompare(a));
+
+    for (const file of logFiles) {
+      const filePath = path.join(logsDir, file);
+      const content = await readFile(filePath, "utf8");
+      const match = content.match(/GetWorkloadImageKeys\(\s*([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})/i);
+      if (match && match[1]) {
+        // Return the first 8 characters of the UUID to match Salad's Settings display format
+        return match[1].slice(0, 8);
+      }
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
+}
+
+async function pathExists(targetPath) {
+  try {
+    await access(targetPath);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export async function requestElevatedHelper() {

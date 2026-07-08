@@ -1,5 +1,31 @@
 # Snapshots
 
+## 2026-07-08 - Block 024: Real Salad RIG ID Discovery
+
+Branch:
+
+- `main`
+
+Current state:
+
+- The helper now scans Salad logs to find the real Salad Machine/RIG ID (UUID) and extracts its first 8 characters, matching the ID shown in Salad Settings.
+- The UI dynamically displays this real Salad RIG ID instead of the "Not exposed locally" state.
+- Fallback to hostname-based hash is preserved if logs are not available or have not recorded the registration.
+- Version bumped to 0.10.3.
+
+Decisions:
+
+- Read logs directory and parse `GetWorkloadImageKeys(...)` calls to discover the real Salad machine ID.
+- Fallback gracefully to hostname-based SHA-256 hash if log evidence is missing.
+
+Risks:
+
+- Reading logs might fail if the directory is completely missing or permissions prevent read access, which is already handled gracefully by returning null.
+
+Next suggested step:
+
+- Add a separate import workflow for multi-PC machine reports.
+
 ## 2026-07-07 - Block 023: Dependency Cleanup And Suite Stop/Restart Scripts
 
 Branch:
