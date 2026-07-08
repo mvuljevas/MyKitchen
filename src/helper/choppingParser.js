@@ -1,6 +1,7 @@
 const timestampPattern =
   /^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})\.(\d{3}) ([+-]\d{2}):(\d{2})/;
 const miningSignalPattern = /\bMining at\b/i;
+const containerSignalPattern = /\bRunning\(Ready,\s*Started\)/i;
 const defaultSignalDurationSeconds = 30;
 const defaultLogActivityDurationSeconds = 60;
 const maxSignalGapSeconds = 120;
@@ -92,21 +93,30 @@ function collectMiningSignals(logWindows) {
   const signals = [];
 
   for (const logWindow of logWindows) {
+    let currentTimestamp = null;
+
     for (const line of logWindow.lines) {
-      if (!miningSignalPattern.test(line)) {
-        continue;
-      }
-
       const timestamp = parseLogTimestamp(line);
-
-      if (!timestamp) {
-        continue;
+      if (timestamp) {
+        currentTimestamp = timestamp;
       }
 
-      signals.push({
-        timestamp,
-        source: logWindow.relativePath,
-      });
+      if (miningSignalPattern.test(line)) {
+        const signalTime = timestamp || currentTimestamp;
+        if (signalTime) {
+          signals.push({
+            timestamp: signalTime,
+            source: logWindow.relativePath,
+          });
+        }
+      } else if (containerSignalPattern.test(line)) {
+        if (currentTimestamp) {
+          signals.push({
+            timestamp: currentTimestamp,
+            source: logWindow.relativePath,
+          });
+        }
+      }
     }
   }
 

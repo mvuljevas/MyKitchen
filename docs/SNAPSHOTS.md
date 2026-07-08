@@ -1,5 +1,31 @@
 # Snapshots
 
+## 2026-07-08 - Block 025: Container Workload Active Chopping Support
+
+Branch:
+
+- `main`
+
+Current state:
+
+- The log parser (`choppingParser.js`) now supports detecting container-based compute workloads (matching `Running(Ready, Started)`) as active Chopping hours, in addition to mining workloads (`Mining at`).
+- Added state-aware contextual timestamp parsing to match multiline workload reports with their header timestamps in the logs.
+- Added a unit test validating container workload logs parsing.
+- Version bumped to 0.10.4.
+
+Decisions:
+
+- Support both `Mining at` and `Running(Ready, Started)` to ensure container jobs are counted correctly as active compute/chopping time.
+- Track log timestamps statefully within each log window loop to handle logs without timestamps on every line.
+
+Risks:
+
+- None identified; all tests passed.
+
+Next suggested step:
+
+- Add a separate import workflow for multi-PC machine reports.
+
 ## 2026-07-08 - Block 024: Real Salad RIG ID Discovery
 
 Branch:

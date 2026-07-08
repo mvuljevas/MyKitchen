@@ -134,3 +134,24 @@ test("infers rig activity from all log modification timestamps", () => {
   assert.equal(summary.intervalCount, 2);
   assert.equal(summary.rolling7DaysHours, 0.12);
 });
+
+test("calculates chopping summary from container workloads", () => {
+  const summary = calculateChoppingSummary(
+    [
+      {
+        relativePath: "logs\\SaladBowl\\service.log",
+        lines: [
+          "2026-06-27 10:00:00.000 -03:00 [INF] Workload Instance States:",
+          "  \tcf9f8eb7: Running(Ready, Started) - StartedAt 2026-06-27T10:00:00 for 0s",
+          "2026-06-27 10:00:30.000 -03:00 [INF] Workload Instance States:",
+          "  \tcf9f8eb7: Running(Ready, Started) - StartedAt 2026-06-27T10:00:00 for 30s",
+        ],
+      },
+    ],
+    new Date("2026-06-28T12:00:00-03:00"),
+  );
+
+  assert.equal(summary.signalCount, 2);
+  assert.equal(summary.intervalCount, 1);
+  assert.equal(summary.history.find((day) => day.isoDate === "2026-06-27").hours, 0.02);
+});
