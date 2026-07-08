@@ -286,6 +286,7 @@ async function getCurrentWorkload() {
     logs,
     system,
     lastSignalAt: history.lastSignalAt,
+    lastSignalSource: history.lastSignalSource,
   });
 }
 
@@ -382,6 +383,7 @@ async function getSaladStatus() {
     logs,
     system,
     lastSignalAt: history?.lastSignalAt ?? null,
+    lastSignalSource: history?.lastSignalSource ?? null,
   });
 
   return {

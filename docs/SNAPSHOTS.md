@@ -1,5 +1,36 @@
 # Snapshots
 
+## 2026-07-08 - Block 026: UI Grid Layout Refinement and Workload Classification Fix
+
+Branch:
+
+- `main`
+
+Current state:
+
+- Solved the low container hours reporting bug by assigning a custom 5-minute duration and 6-minute gap limit to container workload status events, allowing them to merge into continuous intervals.
+- Fixed the workload classifier (`workloadClassifier.js`) to verify the active signal source file before declaring it as a mining workload, preventing container workloads from being incorrectly classified as T-Rex mining.
+- Cleaned up the dashboard UI:
+  - Removed the Money panel card because earnings details are not exposed by the helper.
+  - Split the 4 status panel metrics into individual first-class `MetricCard` components.
+  - Refined `.command-grid` to be a solid 3-column layout on desktop, where the main Hero panel spans 2 rows.
+  - Added a responsive vertical stack fallback for screen widths under 1180px.
+  - Added margin space below the top header menu (`.app-header`).
+- Version bumped to 0.10.5.
+
+Decisions:
+
+- Free up grid space by completely removing the unexposed Money panel card and converting the status signals to separate first-class grid cards.
+- Add bottom margin to `.app-header` for consistent visual spacing.
+
+Risks:
+
+- None identified; all tests passed.
+
+Next suggested step:
+
+- Add a separate import workflow for multi-PC machine reports.
+
 ## 2026-07-08 - Block 025: Container Workload Active Chopping Support
 
 Branch:

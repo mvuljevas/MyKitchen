@@ -309,7 +309,6 @@ function Overview({
   summary,
   workload,
 }) {
-  const earnings = extractEstimatedEarnings(summary);
   const progressWidth = `${Math.min(Math.max(starChef.progress, 0), 100)}%`;
   const activeRange = chartRanges.find((range) => range.days === historyDays) ?? chartRanges[1];
 
@@ -339,35 +338,29 @@ function Overview({
           </div>
         </section>
 
-        <section className="money-panel" aria-labelledby="earnings-heading">
-          <p className="section-label">Money</p>
-          <h2 id="earnings-heading">Estimated earned</h2>
-          <strong>{earnings.value}</strong>
-          <span>{earnings.detail}</span>
-        </section>
+        <MetricCard
+          label="Last 24 hours"
+          value={`${summary.last24Hours.toFixed(2)}h`}
+          detail="Live 24h parser window"
+        />
 
-        <section className="status-panel" aria-label="Live system status">
-          <WorkSignal
-            label="Last 24 hours"
-            value={`${summary.last24Hours.toFixed(2)}h`}
-            detail="Live 24h parser window"
-          />
-          <WorkSignal
-            label="Rolling window"
-            value={`${summary.rolling7DaysHours.toFixed(1)}h`}
-            detail={`${summary.signalCount} signals · ${summary.intervalCount} intervals`}
-          />
-          <WorkSignal
-            label="Salad process"
-            value={status.process.label}
-            detail={status.service?.label ?? "Service status unknown"}
-          />
-          <WorkSignal
-            label="Last update"
-            value={lastRefreshedAt ? formatTerminalTime(lastRefreshedAt) : "Pending"}
-            detail={machineLabel}
-          />
-        </section>
+        <MetricCard
+          label="Rolling window"
+          value={`${summary.rolling7DaysHours.toFixed(1)}h`}
+          detail={`${summary.signalCount} signals · ${summary.intervalCount} intervals`}
+        />
+
+        <MetricCard
+          label="Salad process"
+          value={status.process.label}
+          detail={status.service?.label ?? "Service status unknown"}
+        />
+
+        <MetricCard
+          label="Last update"
+          value={lastRefreshedAt ? formatTerminalTime(lastRefreshedAt) : "Pending"}
+          detail={machineLabel}
+        />
       </section>
 
       <section className="dashboard-grid">

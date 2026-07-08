@@ -88,6 +88,7 @@ code {
   background: rgb(12 18 32 / 78%);
   box-shadow: 0 24px 70px rgb(0 0 0 / 34%);
   padding: 12px 14px;
+  margin-bottom: 24px;
 }
 
 .brand-lockup,
@@ -255,14 +256,12 @@ h2 {
 
 .command-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.55fr) minmax(240px, 0.62fr) minmax(280px, 0.86fr);
+  grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 1fr);
   gap: 16px;
-  margin-bottom: 16px;
+  margin-bottom: 24px;
 }
 
 .hero-panel,
-.money-panel,
-.status-panel,
 .panel,
 .metric-card {
   border: 1px solid rgb(148 163 184 / 13%);
@@ -276,6 +275,12 @@ h2 {
 .hero-panel {
   min-height: 278px;
   padding: 24px;
+}
+
+@media (min-width: 1181px) {
+  .hero-panel {
+    grid-row: span 2;
+  }
 }
 
 .hero-panel-top,
@@ -304,72 +309,15 @@ h2 {
   font-weight: 850;
 }
 
-.money-panel {
-  display: grid;
-  align-content: start;
-  min-height: 278px;
-  padding: 24px;
-}
-
-.money-panel h2 {
-  margin: 8px 0 36px;
-  font-size: 18px;
-}
-
-.money-panel strong {
-  color: #fbfff8;
-  font-size: clamp(30px, 4vw, 44px);
-  line-height: 1;
-  overflow-wrap: anywhere;
-}
-
-.money-panel span {
-  margin-top: 12px;
-  color: #9ba8b8;
-  line-height: 1.5;
-}
-
-.status-panel {
-  display: grid;
-  gap: 10px;
-  padding: 14px;
-}
-
-.work-signal {
-  min-width: 0;
-  border: 1px solid rgb(148 163 184 / 10%);
-  border-radius: 8px;
-  background: rgb(5 8 18 / 36%);
-  padding: 14px;
-}
-
-.work-signal span,
-.work-signal small {
-  display: block;
-  color: #9ba8b8;
-}
-
-.work-signal span {
-  font-size: 12px;
-  font-weight: 900;
-  text-transform: uppercase;
-}
-
-.work-signal strong {
-  display: block;
-  margin: 6px 0 2px;
-  color: #fbfff8;
-  font-size: 19px;
-  line-height: 1.2;
-  overflow-wrap: anywhere;
-}
-
-.work-signal small {
-  line-height: 1.45;
-}
-
 .panel {
   padding: 22px;
+}
+
+.metric-card span {
+  display: block;
+  margin-top: 6px;
+  font-size: 12px;
+  line-height: 1.4;
 }
 
 .metric-grid {
@@ -846,10 +794,6 @@ h2 {
   .dashboard-grid {
     grid-template-columns: 1fr;
   }
-
-  .status-panel {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
 }
 
 @media (max-width: 920px) {
@@ -900,11 +844,10 @@ h2 {
     justify-content: flex-start;
   }
 
-  .metric-grid,
-  .status-panel {
+  .metric-grid {
     grid-template-columns: 1fr;
   }
-
+  
   .terminal-line {
     grid-template-columns: 1fr;
     gap: 2px;
@@ -929,7 +872,6 @@ h2 {
   }
 
   .hero-panel,
-  .money-panel,
   .panel {
     padding: 18px;
   }

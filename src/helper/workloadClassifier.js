@@ -2,15 +2,16 @@ const minerNames = ["t-rex", "trex", "rigel", "xmrig", "teamredminer", "lolminer
 const containerHints = ["containerd", "runc", "docker", "wslhost", "job", "workload"];
 const bandwidthHints = ["bandwidth", "traffic", "network", "packet"];
 
-export function classifyWorkload({ logs = [], system = {}, lastSignalAt = null }) {
+export function classifyWorkload({ logs = [], system = {}, lastSignalAt = null, lastSignalSource = null }) {
   const recentMinerLog = logs.find((log) => isMinerPath(log.relativePath));
   const windowsProcesses = system.windowsProcesses ?? [];
   const activeMinerProcess = windowsProcesses.find((process) =>
     minerNames.some((name) => process.name.toLowerCase().includes(name)),
   );
   const signalIsLive = isRecentSignal(lastSignalAt);
+  const lastSignalIsMiner = lastSignalSource ? isMinerPath(lastSignalSource) : false;
 
-  if (activeMinerProcess || (recentMinerLog && signalIsLive)) {
+  if (activeMinerProcess || (recentMinerLog && signalIsLive && lastSignalIsMiner)) {
     const minerFamily = recentMinerLog
       ? extractLogFamily(recentMinerLog.relativePath)
       : activeMinerProcess.name;

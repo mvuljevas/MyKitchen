@@ -43,6 +43,7 @@ export function calculateChoppingSummary(logWindows, now = new Date(), days = 7)
     history,
     hourlyHistory,
     lastSignalAt: signals.at(-1)?.timestamp.toISOString() ?? null,
+    lastSignalSource: signals.at(-1)?.source ?? null,
   };
 }
 
@@ -114,6 +115,8 @@ function collectMiningSignals(logWindows) {
           signals.push({
             timestamp: currentTimestamp,
             source: logWindow.relativePath,
+            duration: 300, // 5 minutes
+            maxGap: 360,   // 6 minutes
           });
         }
       }
@@ -143,17 +146,18 @@ function buildIntervalsFromEvents(events, { sampleSeconds, maxGapSeconds, confid
 
   const intervals = [];
   let start = events[0].timestamp;
-  let end = addSeconds(events[0].timestamp, sampleSeconds);
+  let end = addSeconds(events[0].timestamp, events[0].duration ?? sampleSeconds);
 
   for (const event of events.slice(1)) {
     const gapSeconds = (event.timestamp - end) / 1000;
+    const currentMaxGap = event.maxGap ?? maxGapSeconds;
 
-    if (gapSeconds > maxGapSeconds) {
+    if (gapSeconds > currentMaxGap) {
       intervals.push({ start, end, confidence });
       start = event.timestamp;
     }
 
-    end = addSeconds(event.timestamp, sampleSeconds);
+    end = addSeconds(event.timestamp, event.duration ?? sampleSeconds);
   }
 
   intervals.push({ start, end, confidence });

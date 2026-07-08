@@ -153,5 +153,5 @@ test("calculates chopping summary from container workloads", () => {
 
   assert.equal(summary.signalCount, 2);
   assert.equal(summary.intervalCount, 1);
-  assert.equal(summary.history.find((day) => day.isoDate === "2026-06-27").hours, 0.02);
+  assert.equal(summary.history.find((day) => day.isoDate === "2026-06-27").hours, 0.09);
 });
