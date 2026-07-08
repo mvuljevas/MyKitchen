@@ -1,7 +1,7 @@
 {
   "name": "mykitchen",
   "private": true,
-  "version": "0.10.6",
+  "version": "0.10.7",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -24,6 +24,7 @@
     "vite": "^7.0.0"
   },
   "devDependencies": {
+    "@mvuljevas/pragmatik": "^0.3.1",
     "@tailwindcss/vite": "^4.3.2",
     "tailwindcss": "^4.3.2"
   }

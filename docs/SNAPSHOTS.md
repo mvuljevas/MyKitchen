@@ -1,5 +1,28 @@
 # Snapshots
 
+## 2026-07-08 - Block 028: Dev Dependency Incorporation
+
+Branch:
+
+- `main`
+
+Current state:
+
+- Incorporated the `@mvuljevas/pragmatik` dev dependency added by the user.
+- Version bumped to 0.10.7.
+
+Decisions:
+
+- Track and commit user's added dependency to keep the worktree clean.
+
+Risks:
+
+- None identified.
+
+Next suggested step:
+
+- Add a separate import workflow for multi-PC machine reports.
+
 ## 2026-07-08 - Block 027: Workload Classifier Priority Logic Fix
 
 Branch:
