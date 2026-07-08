@@ -1,5 +1,30 @@
 # Snapshots
 
+## 2026-07-08 - Block 029: Scan Support for .txt Main Salad Logs
+
+Branch:
+
+- `main`
+
+Current state:
+
+- Resolved the "flat 0h history graph after 9 AM" issue by updating `src/helper/server.js`'s log file collection and reading functions. Previously, the helper was hardcoded to only scan `.log` files, thus completely ignoring the main Salad log files (named `log-YYYYMMDD.txt`), which contain all the container workload active signals.
+- Configured log filters and path-inside verification to allow `.txt` file extensions.
+- Verified that all hourly history buckets populate correctly through direct API querying.
+- Version bumped to 0.10.8.
+
+Decisions:
+
+- Expand log scan pattern from just `.log` to include `.txt` files under the verified local directory.
+
+Risks:
+
+- None identified; all tests passed.
+
+Next suggested step:
+
+- Add a separate import workflow for multi-PC machine reports.
+
 ## 2026-07-08 - Block 028: Dev Dependency Incorporation
 
 Branch:

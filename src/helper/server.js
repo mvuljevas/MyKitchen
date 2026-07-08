@@ -453,7 +453,8 @@ async function collectLogFiles(root, currentPath, files, depth) {
       continue;
     }
 
-    if (!entry.isFile() || !entry.name.toLowerCase().endsWith(".log")) {
+    const ext = entry.name.toLowerCase();
+    if (!entry.isFile() || (!ext.endsWith(".log") && !ext.endsWith(".txt"))) {
       continue;
     }
 
@@ -473,8 +474,9 @@ async function collectLogFiles(root, currentPath, files, depth) {
 async function readLogWindow(id) {
   const relativePath = decodeLogId(id);
   const targetPath = path.resolve(installPath, relativePath);
+  const ext = relativePath.toLowerCase();
 
-  if (!isPathInside(installPath, targetPath) || !relativePath.endsWith(".log")) {
+  if (!isPathInside(installPath, targetPath) || (!ext.endsWith(".log") && !ext.endsWith(".txt"))) {
     return {
       id,
       lines: [],
