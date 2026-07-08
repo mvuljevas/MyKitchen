@@ -1,5 +1,29 @@
 # Snapshots
 
+## 2026-07-08 - Block 027: Workload Classifier Priority Logic Fix
+
+Branch:
+
+- `main`
+
+Current state:
+
+- Fixed the workload classifier (`workloadClassifier.js`) logic where the historical mining log check was placed above active container and bandwidth checks. This caused any past T-Rex logs to permanently override and block container workload classification, keeping the UI stuck in the "Mining (T-Rex)" status.
+- Validated classification outputs using targeted scripting.
+- Version bumped to 0.10.6.
+
+Decisions:
+
+- Move active workload checks (WSL, container processes, active container logs) above historical mining checks so live container activity is prioritized.
+
+Risks:
+
+- None identified; all tests passed.
+
+Next suggested step:
+
+- Add a separate import workflow for multi-PC machine reports.
+
 ## 2026-07-08 - Block 026: UI Grid Layout Refinement and Workload Classification Fix
 
 Branch:

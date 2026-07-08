@@ -11,6 +11,7 @@ export function classifyWorkload({ logs = [], system = {}, lastSignalAt = null, 
   const signalIsLive = isRecentSignal(lastSignalAt);
   const lastSignalIsMiner = lastSignalSource ? isMinerPath(lastSignalSource) : false;
 
+  // 1. Check for active mining workload
   if (activeMinerProcess || (recentMinerLog && signalIsLive && lastSignalIsMiner)) {
     const minerFamily = recentMinerLog
       ? extractLogFamily(recentMinerLog.relativePath)
@@ -27,28 +28,18 @@ export function classifyWorkload({ logs = [], system = {}, lastSignalAt = null, 
     };
   }
 
-  if (recentMinerLog) {
-    return {
-      type: "historical-mining",
-      label: `Last mining / PoW (${extractLogFamily(recentMinerLog.relativePath)})`,
-      source: "miner-log",
-      confidence: lastSignalAt ? "inferred" : "low-confidence",
-      since: null,
-      lastSignalAt,
-      evidence: sanitizeEvidence(recentMinerLog.relativePath),
-    };
-  }
-
+  // 2. Check for active container/WSL workload
   const wslProcesses = system.wsl?.processes ?? [];
   const containerProcess = wslProcesses.find((process) =>
     containerHints.some((hint) => process.name.toLowerCase().includes(hint)),
   );
+  const containerIsLive = signalIsLive && !lastSignalIsMiner;
 
-  if (system.wsl?.saladDistro?.running || containerProcess) {
+  if (system.wsl?.saladDistro?.running || containerProcess || containerIsLive) {
     return {
       type: "container",
       label: "Container workload",
-      source: "wsl",
+      source: containerProcess ? "wsl" : (containerIsLive ? "logs" : "wsl-distro"),
       confidence: containerProcess ? "confirmed" : "inferred",
       since: null,
       lastSignalAt,
@@ -56,6 +47,7 @@ export function classifyWorkload({ logs = [], system = {}, lastSignalAt = null, 
     };
   }
 
+  // 3. Check for active bandwidth sharing
   const bandwidthLog = logs.find((log) =>
     bandwidthHints.some((hint) => log.relativePath.toLowerCase().includes(hint)),
   );
@@ -72,6 +64,20 @@ export function classifyWorkload({ logs = [], system = {}, lastSignalAt = null, 
     };
   }
 
+  // 4. Fallback: historical mining check
+  if (recentMinerLog) {
+    return {
+      type: "historical-mining",
+      label: `Last mining / PoW (${extractLogFamily(recentMinerLog.relativePath)})`,
+      source: "miner-log",
+      confidence: lastSignalAt ? "inferred" : "low-confidence",
+      since: null,
+      lastSignalAt,
+      evidence: sanitizeEvidence(recentMinerLog.relativePath),
+    };
+  }
+
+  // 5. Fallback: unknown workload
   return {
     type: "unknown",
     label: "Unknown workload",
