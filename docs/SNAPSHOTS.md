@@ -12,15 +12,15 @@ Current state:
   - Aligned the interactive graph directly to the right of the primary card (Hero Panel) in a 2-column top grid (`.hero-chart-row`).
   - Positioned the 4 metric cards below in a 4-column row.
   - Placed the Salad Server clocks comparison widget and the Fidelity side panel in a bottom row (`.bottom-grid`).
-  - Styled all panels (`.hero-panel`, `.side-panel`, `.metric-card`) to use flex column layouts for visual alignment and equal-height stretching.
-- Refined the interactive graph to prevent Y-axis and X-axis labels from overlapping at the origin by adjusting margins and adding tickMargin attributes.
+  - Styled all panels (`.hero-panel`, `.side-panel`, `.metric-card`, `.priority-chart`) to use flex column layouts for visual alignment and equal-height stretching.
+- Refined the interactive graph to prevent Y-axis and X-axis labels from overlapping at the origin by adjusting margins, adding tickMargin attributes, and configured ResponsiveContainer to stretch 100% dynamically.
 - Implemented Salad Server time comparison, showing Salad Server Time (UTC) vs. Local Rig Time side-by-side with calendar dates and timezone date crossover / rollover indicators.
 - Added a "Salad Week Start Day" setting in the Configuration tab (persisted via `localStorage`), enabling custom definition of the start of the week.
 - Developed a custom, premium popover date range picker calendar `DatePickerPopover` supporting quick presets (Current Salad Week, Previous Salad Week, Last 7 Days) and manual calendar date range selection.
 - Modified Star Chef calculations to compute and filter qualification progress dynamically based on the selected date range.
 - Added a quick controls bar below the header to launch Salad, sync, start/stop/restart background services, stop suite, and reboot the rig.
 - Separated Salad desktop app detection from background service check to show true process status.
-- Version bumped to 0.12.0.
+- Version bumped to 0.12.1.
 
 Decisions:
 

@@ -1217,7 +1217,7 @@ function ChoppingChart({ data, mode }) {
     <div className="chart" role="img" aria-label="Interactive Chopping hours chart">
       {/* Use an explicit pixel height so ResponsiveContainer always gets a
           non-zero measurement regardless of the parent's min-height rule. */}
-      <ResponsiveContainer height={310} width="100%">
+      <ResponsiveContainer height="100%" width="100%">
         {mode === "Bars" ? (
           <BarChart data={chartData} margin={{ top: 10, right: 10, left: -15, bottom: 5 }}>
             <CartesianGrid stroke="rgba(148, 163, 184, 0.14)" vertical={false} />
