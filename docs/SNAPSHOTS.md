@@ -14,11 +14,11 @@ Current state:
   - Placed the Salad Server clocks comparison widget and the Fidelity side panel in a bottom row (`.bottom-grid`).
   - Styled all panels (`.hero-panel`, `.side-panel`, `.metric-card`) to use flex column layouts for visual alignment and equal-height stretching.
 - Refined the interactive graph to prevent Y-axis and X-axis labels from overlapping at the origin by adjusting margins and adding tickMargin attributes.
-- Implemented Salad Server time comparison, showing Salad Server Time (UTC) vs. Local Rig Time side-by-side with an active countdown timer to the next weekly reset.
+- Implemented Salad Server time comparison, showing Salad Server Time (UTC) vs. Local Rig Time side-by-side with calendar dates and timezone date crossover / rollover indicators.
 - Added a "Salad Week Start Day" setting in the Configuration tab (persisted via `localStorage`), enabling custom definition of the start of the week.
 - Developed a custom, premium popover date range picker calendar `DatePickerPopover` supporting quick presets (Current Salad Week, Previous Salad Week, Last 7 Days) and manual calendar date range selection.
 - Modified Star Chef calculations to compute and filter qualification progress dynamically based on the selected date range.
-- Version bumped to 0.11.1.
+- Version bumped to 0.11.2.
 
 Decisions:
 

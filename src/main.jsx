@@ -1641,6 +1641,15 @@ function ServerTimeComparison({ weekStartDay }) {
     }).format(d);
   };
 
+  const formatClockDate = (d, isUtc) => {
+    return new Intl.DateTimeFormat(undefined, {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+      timeZone: isUtc ? "UTC" : undefined,
+    }).format(d);
+  };
+
   const getResetCountdown = () => {
     const nextReset = getNextResetTime(weekStartDay);
     const now = new Date();
@@ -1662,6 +1671,11 @@ function ServerTimeComparison({ weekStartDay }) {
   const localOffset = -new Date().getTimezoneOffset() / 60;
   const offsetLabel = `UTC${localOffset >= 0 ? "+" : ""}${localOffset}`;
 
+  // Calculate day difference for date rollover detection
+  const utcDayStart = Date.UTC(times.utc.getUTCFullYear(), times.utc.getUTCMonth(), times.utc.getUTCDate());
+  const localDayStart = Date.UTC(times.local.getFullYear(), times.local.getMonth(), times.local.getDate());
+  const dayDiff = Math.round((utcDayStart - localDayStart) / (1000 * 60 * 60 * 24));
+
   return (
     <section className="panel server-time-card" aria-label="Server time comparison">
       <div>
@@ -1673,12 +1687,23 @@ function ServerTimeComparison({ weekStartDay }) {
         <div className="clock-widget">
           <span className="clock-label">Salad Server (UTC)</span>
           <div className="clock-time">{formatClockTime(times.utc, true)}</div>
-          <span className="clock-offset">Coordinated Universal Time</span>
+          <span className="clock-date" style={{ fontSize: "11px", color: dayDiff !== 0 ? "#fca5a5" : "#9ef0b2", fontWeight: "900", display: "inline-flex", alignItems: "center", gap: "6px", marginTop: "6px", textTransform: "uppercase" }}>
+            {formatClockDate(times.utc, true)}
+            {dayDiff !== 0 && (
+              <span className="status-badge warning" style={{ fontSize: "9px", padding: "1px 6px", margin: 0, whiteSpace: "nowrap", border: "1px solid rgb(249 115 22 / 30%)" }}>
+                {dayDiff > 0 ? `+${dayDiff}d` : `${dayDiff}d`} Rollover
+              </span>
+            )}
+          </span>
+          <span className="clock-offset" style={{ marginTop: "6px", display: "block" }}>Coordinated Universal Time</span>
         </div>
         <div className="clock-widget">
           <span className="clock-label">Local Rig Time</span>
           <div className="clock-time">{formatClockTime(times.local, false)}</div>
-          <span className="clock-offset">Active timezone ({offsetLabel})</span>
+          <span className="clock-date" style={{ fontSize: "11px", color: "#9ef0b2", fontWeight: "900", display: "inline-block", marginTop: "6px", textTransform: "uppercase" }}>
+            {formatClockDate(times.local, false)}
+          </span>
+          <span className="clock-offset" style={{ marginTop: "6px", display: "block" }}>Active timezone ({offsetLabel})</span>
         </div>
       </div>
 
