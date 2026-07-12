@@ -92,6 +92,10 @@ export async function requestStoragePurge({
   return fetchJson(`/salad/storage/purge?${params.toString()}`);
 }
 
+export async function applySaladControlAction(action) {
+  return fetchJson(`/salad/control/apply?action=${encodeURIComponent(action)}`);
+}
+
 async function fetchJson(path, { timeoutMs = 8000 } = {}) {
   const controller = new AbortController();
   const timeout = window.setTimeout(() => controller.abort(), timeoutMs);

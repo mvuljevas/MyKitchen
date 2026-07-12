@@ -18,6 +18,7 @@ import {
   requestStoragePurge,
   requestSuiteShutdown,
   subscribeToEvents,
+  applySaladControlAction,
 } from "./api/dashboard.js";
 import { emptyDashboard, starChefTargetHours } from "./data/emptyDashboard.js";
 import "simplebar-react/dist/simplebar.min.css";
@@ -152,6 +153,33 @@ function App() {
     await refreshDashboard();
   }
 
+  async function handleSaladControl(action) {
+    try {
+      const res = await applySaladControlAction(action);
+      setLiveEvents((events) => [
+        ...events,
+        {
+          observedAt: new Date().toISOString(),
+          source: "control",
+          level: "info",
+          message: `Salad control action: ${action} succeeded.`,
+        },
+      ]);
+      await refreshDashboard();
+    } catch (err) {
+      setLiveEvents((events) => [
+        ...events,
+        {
+          observedAt: new Date().toISOString(),
+          source: "control",
+          level: "error",
+          message: `Salad control action: ${action} failed: ${err.message}`,
+        },
+      ]);
+      alert(`Action failed: ${err.message}`);
+    }
+  }
+
   // Run once on mount: initial load + stable interval.
   // refreshDashboard is now stable (no deps), so this effect never re-runs
   // and the interval is never recreated unnecessarily.
@@ -238,11 +266,82 @@ function App() {
             {isRefreshing ? "Refreshing" : `Auto ${refreshIntervalMs / 1000}s`}
             {lastRefreshedAt ? ` · ${formatTerminalTime(lastRefreshedAt)}` : ""}
           </span>
-          <button className="icon-button" type="button" onClick={() => refreshDashboard()}>
-            {isRefreshing ? "Updating" : "Sync"}
-          </button>
         </div>
       </header>
+
+      {source === "helper" && (
+        <div className="quick-controls-bar" style={{ display: "flex", gap: "10px", margin: "-10px 0 20px 0", flexWrap: "wrap", background: "rgb(5 8 18 / 30%)", padding: "10px", borderRadius: "8px", border: "1px solid rgb(148 163 184 / 8%)" }}>
+          <button
+            className="secondary-button compact"
+            type="button"
+            onClick={() => handleSaladControl("start-salad")}
+            style={{ margin: 0, fontSize: "12px", padding: "6px 12px" }}
+          >
+            🚀 Launch Salad
+          </button>
+          
+          <button
+            className="secondary-button compact"
+            type="button"
+            onClick={() => refreshDashboard(true)}
+            style={{ margin: 0, fontSize: "12px", padding: "6px 12px" }}
+          >
+            🔄 Sync Data
+          </button>
+
+          {status.service?.detected ? (
+            <button
+              className="danger-button compact"
+              type="button"
+              onClick={() => handleSaladControl("stop-service")}
+              style={{ margin: 0, fontSize: "12px", padding: "6px 12px" }}
+            >
+              🛑 Stop Service
+            </button>
+          ) : (
+            <button
+              className="primary-button compact"
+              type="button"
+              onClick={() => handleSaladControl("start-service")}
+              style={{ margin: 0, fontSize: "12px", padding: "6px 12px" }}
+            >
+              🟢 Start Service
+            </button>
+          )}
+
+          <button
+            className="secondary-button compact"
+            type="button"
+            onClick={() => handleSaladControl("restart-service")}
+            style={{ margin: 0, fontSize: "12px", padding: "6px 12px" }}
+          >
+            🔁 Restart Service
+          </button>
+          
+          <button
+            className="danger-button compact"
+            type="button"
+            onClick={() => stopSuite()}
+            disabled={!dashboard.suite?.managed}
+            style={{ margin: 0, fontSize: "12px", padding: "6px 12px" }}
+          >
+            🔌 Stop Suite
+          </button>
+
+          <button
+            className="danger-button compact"
+            type="button"
+            onClick={() => {
+              if (window.confirm("Are you sure you want to reboot the system? This will restart the rig immediately.")) {
+                handleSaladControl("reboot-rig");
+              }
+            }}
+            style={{ margin: 0, fontSize: "12px", padding: "6px 12px", marginLeft: "auto" }}
+          >
+            🖥️ Reboot Rig
+          </button>
+        </div>
+      )}
 
       {error ? <p className="notice error">{error}</p> : null}
 

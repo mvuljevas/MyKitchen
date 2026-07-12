@@ -18,7 +18,9 @@ Current state:
 - Added a "Salad Week Start Day" setting in the Configuration tab (persisted via `localStorage`), enabling custom definition of the start of the week.
 - Developed a custom, premium popover date range picker calendar `DatePickerPopover` supporting quick presets (Current Salad Week, Previous Salad Week, Last 7 Days) and manual calendar date range selection.
 - Modified Star Chef calculations to compute and filter qualification progress dynamically based on the selected date range.
-- Version bumped to 0.11.2.
+- Added a quick controls bar below the header to launch Salad, sync, start/stop/restart background services, stop suite, and reboot the rig.
+- Separated Salad desktop app detection from background service check to show true process status.
+- Version bumped to 0.12.0.
 
 Decisions:
 

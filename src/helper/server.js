@@ -1,4 +1,5 @@
 import { createServer } from "node:http";
+import { exec } from "node:child_process";
 import { access, readdir, readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -198,6 +199,37 @@ async function routeRequest(request, response) {
     return;
   }
 
+  if (url.pathname === "/salad/control/apply") {
+    const action = url.searchParams.get("action");
+    let cmd = "";
+    
+    if (action === "start-salad") {
+      cmd = 'start "" "salad:" || start "" "C:\\Program Files\\Salad\\Salad.exe"';
+    } else if (action === "stop-service") {
+      cmd = 'net stop SaladBowlService';
+    } else if (action === "start-service") {
+      cmd = 'net start SaladBowlService';
+    } else if (action === "restart-service") {
+      cmd = 'net stop SaladBowlService && net start SaladBowlService';
+    } else if (action === "reboot-rig") {
+      cmd = 'shutdown /r /t 5';
+    }
+    
+    if (!cmd) {
+      sendJson(response, 400, { ok: false, message: "Invalid action" });
+      return;
+    }
+    
+    exec(cmd, (err, stdout, stderr) => {
+      if (err) {
+        sendJson(response, 500, { ok: false, error: err.message, stderr: stderr.trim() });
+      } else {
+        sendJson(response, 200, { ok: true, stdout: stdout.trim() });
+      }
+    });
+    return;
+  }
+
   if (url.pathname === "/salad/storage") {
     sendJson(response, 200, await inspectSaladStorage(installPath));
     return;
@@ -366,11 +398,14 @@ async function getSaladStatus() {
   const installPathExists = await pathExists(installPath);
   const system = await inspectSystem();
   const processes = system.windowsProcesses.map((process) => process.name);
-  const detectedProcess = processes.find((processName) =>
-    saladProcessNames.has(processName.toLowerCase()),
+  const detectedApp = processes.find((processName) =>
+    processName.toLowerCase() === "salad.exe",
   );
   const detectedService = processes.find(
-    (processName) => processName.toLowerCase() === "salad.bowl.service.exe",
+    (processName) =>
+      processName.toLowerCase() === "salad.bowl.service.exe" ||
+      processName.toLowerCase() === "salad.service.exe" ||
+      processName.toLowerCase() === "salad-bowl-service.exe",
   );
   const detectedWorkload = processes.find((processName) =>
     workloadProcessHints.some((hint) => processName.toLowerCase().includes(hint)),
@@ -393,13 +428,13 @@ async function getSaladStatus() {
     elevation: system.elevation,
     wsl: system.wsl,
     process: {
-      label: detectedProcess ? "Active" : "Not detected",
-      state: detectedProcess ? "active" : "inactive",
-      detected: Boolean(detectedProcess),
-      match: detectedProcess ?? null,
+      label: detectedApp ? "App Running" : "App Closed",
+      state: detectedApp ? "active" : "inactive",
+      detected: Boolean(detectedApp),
+      match: detectedApp ?? null,
     },
     service: {
-      label: detectedService ? "Bowl service active" : "Bowl service not detected",
+      label: detectedService ? "Service Active" : "Service Inactive",
       state: detectedService ? "active" : "inactive",
       detected: Boolean(detectedService),
       match: detectedService ?? null,
