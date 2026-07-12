@@ -43,7 +43,27 @@ function App() {
   const [storageAction, setStorageAction] = useState(null);
   const [liveEvents, setLiveEvents] = useState([]);
   const [lastRefreshedAt, setLastRefreshedAt] = useState(null);
+  const [weekStartDay, setWeekStartDay] = useState(() => {
+    return localStorage.getItem("mykitchen_week_start_day") || "Friday";
+  });
+  const [dateRange, setDateRange] = useState(() => {
+    return {
+      type: "current-week",
+      start: null,
+      end: null,
+    };
+  });
   const refreshInFlightRef = useRef(false);
+
+  const handleSetWeekStartDay = (day) => {
+    localStorage.setItem("mykitchen_week_start_day", day);
+    setWeekStartDay(day);
+    setDateRange({
+      type: "current-week",
+      start: null,
+      end: null,
+    });
+  };
   // Keep historyDays accessible inside the stable interval callback without
   // recreating the interval every time the range changes.
   const historyDaysRef = useRef(historyDays);
@@ -241,6 +261,9 @@ function App() {
           summary={choppingSummary}
           logActivity={logActivity}
           workload={workload}
+          weekStartDay={weekStartDay}
+          dateRange={dateRange}
+          onSetDateRange={setDateRange}
         />
       ) : null}
 
@@ -279,6 +302,8 @@ function App() {
           onEstimateStorage={() => purgeStorage({ dryRun: true })}
           onOpenPurgeDialog={() => setStorageAction("job-cache")}
           onStopSuite={stopSuite}
+          weekStartDay={weekStartDay}
+          onSetWeekStartDay={handleSetWeekStartDay}
         />
       ) : null}
 
@@ -308,13 +333,21 @@ function Overview({
   status,
   summary,
   workload,
+  weekStartDay,
+  dateRange,
+  onSetDateRange,
 }) {
-  const progressWidth = `${Math.min(Math.max(starChef.progress, 0), 100)}%`;
-  const activeRange = chartRanges.find((range) => range.days === historyDays) ?? chartRanges[1];
+  const activeRange = resolvePresetRange(dateRange.type, weekStartDay, dateRange.start, dateRange.end);
+  const rangeHours = calculateHoursInRange(summary.intervals, activeRange.start, activeRange.end);
+  const rangeProgress = Math.min(Math.round((rangeHours / 50) * 100), 100);
+  const rangeRemaining = Math.max(50 - rangeHours, 0);
+  const progressWidth = `${rangeProgress}%`;
+  
+  const chartActiveRange = chartRanges.find((range) => range.days === historyDays) ?? chartRanges[1];
 
   return (
     <>
-      <section className="command-grid" aria-label="Priority Chopping summary">
+      <section className="hero-chart-row" aria-label="Priority Chopping and interactive history row">
         <section className="hero-panel" aria-labelledby="priority-heading">
           <div className="hero-panel-top">
             <div>
@@ -325,50 +358,33 @@ function Overview({
               {workload.confidence}
             </StatusBadge>
           </div>
-          <p className="hero-metric">{summary.totalHours.toFixed(2)}h</p>
-          <p className="hero-caption">
-            confirmed parser total for the selected {activeRange.label.toLowerCase()} window
-          </p>
-          <div className="progress-track priority" aria-label="Estimated Star Chef progress">
+          <p className="hero-metric">{rangeHours.toFixed(2)}h</p>
+          
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "16px", marginBottom: "12px" }}>
+            <p className="hero-caption" style={{ margin: 0 }}>
+              Confirmed hours:
+            </p>
+            <DatePickerPopover
+              weekStartDay={weekStartDay}
+              dateRange={dateRange}
+              onChange={onSetDateRange}
+            />
+          </div>
+
+          <div className="progress-track priority" aria-label="Estimated Star Chef progress" style={{ marginTop: "8px" }}>
             <span style={{ width: progressWidth }} />
           </div>
           <div className="hero-foot">
-            <span>{starChef.progress}% Star Chef estimate</span>
-            <span>{starChef.remainingHours.toFixed(1)}h to {starChefTargetHours}h</span>
+            <span>{rangeProgress}% Star Chef estimate</span>
+            <span>{rangeRemaining.toFixed(1)}h to {starChefTargetHours}h</span>
           </div>
         </section>
 
-        <MetricCard
-          label="Last 24 hours"
-          value={`${summary.last24Hours.toFixed(2)}h`}
-          detail="Live 24h parser window"
-        />
-
-        <MetricCard
-          label="Rolling window"
-          value={`${summary.rolling7DaysHours.toFixed(1)}h`}
-          detail={`${summary.signalCount} signals · ${summary.intervalCount} intervals`}
-        />
-
-        <MetricCard
-          label="Salad process"
-          value={status.process.label}
-          detail={status.service?.label ?? "Service status unknown"}
-        />
-
-        <MetricCard
-          label="Last update"
-          value={lastRefreshedAt ? formatTerminalTime(lastRefreshedAt) : "Pending"}
-          detail={machineLabel}
-        />
-      </section>
-
-      <section className="dashboard-grid">
-        <section className="panel chart-panel priority-chart" aria-labelledby="history-heading">
+        <section className="panel chart-panel priority-chart" aria-labelledby="history-heading" style={{ margin: 0 }}>
           <div className="panel-heading">
             <div>
               <p className="section-label">Interactive graph</p>
-              <h2 id="history-heading">{activeRange.label} Chopping history</h2>
+              <h2 id="history-heading">{chartActiveRange.label} Chopping history</h2>
             </div>
             <div className="chart-controls" aria-label="Chart controls">
               <div className="segmented-control">
@@ -399,6 +415,36 @@ function Overview({
           </div>
           <ChoppingChart data={history} mode={chartMode} />
         </section>
+      </section>
+
+      <section className="metric-grid">
+        <MetricCard
+          label="Last 24 hours"
+          value={`${summary.last24Hours.toFixed(2)}h`}
+          detail="Live 24h parser window"
+        />
+
+        <MetricCard
+          label="Rolling window"
+          value={`${summary.rolling7DaysHours.toFixed(1)}h`}
+          detail={`${summary.signalCount} signals · ${summary.intervalCount} intervals`}
+        />
+
+        <MetricCard
+          label="Salad process"
+          value={status.process.label}
+          detail={status.service?.label ?? "Service status unknown"}
+        />
+
+        <MetricCard
+          label="Last update"
+          value={lastRefreshedAt ? formatTerminalTime(lastRefreshedAt) : "Pending"}
+          detail={machineLabel}
+        />
+      </section>
+
+      <section className="bottom-grid">
+        <ServerTimeComparison weekStartDay={weekStartDay} />
 
         <aside className="panel side-panel" aria-labelledby="truth-heading">
           <p className="section-label">Fidelity</p>
@@ -825,6 +871,8 @@ function Settings({
   onEstimateStorage,
   onOpenPurgeDialog,
   onStopSuite,
+  weekStartDay,
+  onSetWeekStartDay,
 }) {
   return (
     <section className="panel">
@@ -939,6 +987,38 @@ function Settings({
             </article>
           ))}
         </SimpleBar>
+      <section className="settings-section" style={{ borderTop: "1px solid rgb(148 163 184 / 12%)", paddingTop: "20px", marginTop: "20px" }}>
+        <p className="section-label">Salad Week Calendar</p>
+        <h2>Week configuration</h2>
+        <p className="body-copy">
+          Configure the start day for the weekly Star Chef qualification window. Salad status updates typically roll out on Thursdays or Fridays.
+        </p>
+        <div style={{ display: "flex", gap: "12px", alignItems: "center", marginTop: "12px" }}>
+          <label htmlFor="week-start-select" style={{ fontSize: "13px", fontWeight: "700", color: "#9ba8b8" }}>
+            Week starts on:
+          </label>
+          <select
+            id="week-start-select"
+            value={weekStartDay}
+            onChange={(e) => onSetWeekStartDay(e.target.value)}
+            style={{
+              background: "#0f172a",
+              border: "1px solid rgb(148 163 184 / 20%)",
+              color: "#fbfff8",
+              borderRadius: "4px",
+              padding: "6px 12px",
+              fontSize: "13px",
+              fontWeight: "700",
+            }}
+          >
+            {["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"].map((day) => (
+              <option key={day} value={day}>
+                {day}
+              </option>
+            ))}
+          </select>
+        </div>
+      </section>
       </section>
     </section>
   );
@@ -1207,6 +1287,407 @@ function extractEstimatedEarnings(summary) {
     }).format(Number(amount)),
     detail: "Extracted from SaladBowl payload.",
   };
+}
+
+// Helper functions for date operations and week ranges
+function addDays(date, days) {
+  const result = new Date(date);
+  result.setDate(result.getDate() + days);
+  return result;
+}
+
+function addHours(date, hours) {
+  const result = new Date(date);
+  result.setHours(result.getHours() + hours);
+  return result;
+}
+
+function getSaladWeekRange(now, startDayName) {
+  const daysOfWeek = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+  const targetDayIndex = daysOfWeek.indexOf(startDayName);
+  
+  const start = new Date(now);
+  start.setHours(0, 0, 0, 0);
+  
+  let currentDayIndex = start.getDay();
+  let diff = currentDayIndex - targetDayIndex;
+  if (diff < 0) {
+    diff += 7;
+  }
+  start.setDate(start.getDate() - diff);
+  
+  const end = new Date(start);
+  end.setDate(end.getDate() + 6);
+  end.setHours(23, 59, 59, 999);
+  
+  return { start, end };
+}
+
+function resolvePresetRange(type, weekStartDay, customStart, customEnd) {
+  const now = new Date();
+  
+  if (type === "current-week") {
+    return getSaladWeekRange(now, weekStartDay);
+  }
+  
+  if (type === "previous-week") {
+    const current = getSaladWeekRange(now, weekStartDay);
+    const start = addDays(current.start, -7);
+    const end = addDays(current.end, -7);
+    return { start, end };
+  }
+  
+  if (type === "last-7-days") {
+    const end = new Date(now);
+    const start = addDays(end, -6);
+    start.setHours(0, 0, 0, 0);
+    return { start, end };
+  }
+  
+  return { start: customStart ? new Date(customStart) : new Date(), end: customEnd ? new Date(customEnd) : new Date() };
+}
+
+function calculateHoursInRange(intervals = [], start, end) {
+  let totalMs = 0;
+  const startMs = start.getTime();
+  const endMs = end.getTime();
+  
+  for (const interval of intervals) {
+    const intStart = new Date(interval.start).getTime();
+    const intEnd = new Date(interval.end).getTime();
+    
+    const overlapStart = Math.max(intStart, startMs);
+    const overlapEnd = Math.min(intEnd, endMs);
+    
+    if (overlapEnd > overlapStart) {
+      totalMs += (overlapEnd - overlapStart);
+    }
+  }
+  
+  return totalMs / 3600000;
+}
+
+function getNextResetTime(weekStartDayName) {
+  const daysOfWeek = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+  const targetDayIndex = daysOfWeek.indexOf(weekStartDayName);
+  
+  const now = new Date();
+  const nextReset = new Date(Date.UTC(
+    now.getUTCFullYear(),
+    now.getUTCMonth(),
+    now.getUTCDate(),
+    0, 0, 0, 0
+  ));
+  
+  let currentDayIndex = nextReset.getUTCDay();
+  let diff = targetDayIndex - currentDayIndex;
+  if (diff <= 0) {
+    diff += 7;
+  }
+  nextReset.setUTCDate(nextReset.getUTCDate() + diff);
+  return nextReset;
+}
+
+// DatePickerPopover Component
+function DatePickerPopover({ weekStartDay, dateRange, onChange }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef(null);
+  const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [tempStart, setTempStart] = useState(dateRange.start);
+  const [tempEnd, setTempEnd] = useState(dateRange.end);
+  
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (containerRef.current && !containerRef.current.contains(event.target)) {
+        setIsOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    if (dateRange.type === "custom") {
+      setTempStart(dateRange.start);
+      setTempEnd(dateRange.end);
+    } else {
+      const resolved = resolvePresetRange(dateRange.type, weekStartDay);
+      setTempStart(resolved.start);
+      setTempEnd(resolved.end);
+    }
+  }, [dateRange, weekStartDay]);
+
+  const year = currentMonth.getFullYear();
+  const month = currentMonth.getMonth();
+  
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const firstDayIndex = new Date(year, month, 1).getDay();
+  
+  const handlePrevMonth = () => {
+    setCurrentMonth(new Date(year, month - 1, 1));
+  };
+  
+  const handleNextMonth = () => {
+    setCurrentMonth(new Date(year, month + 1, 1));
+  };
+  
+  const selectPreset = (type) => {
+    const resolved = resolvePresetRange(type, weekStartDay);
+    onChange({ type, start: resolved.start, end: resolved.end });
+    setIsOpen(false);
+  };
+  
+  const handleDayClick = (dayNum) => {
+    const clickedDate = new Date(year, month, dayNum);
+    
+    if (!tempStart || (tempStart && tempEnd)) {
+      setTempStart(clickedDate);
+      setTempEnd(null);
+    } else if (tempStart && !tempEnd) {
+      if (clickedDate >= tempStart) {
+        setTempEnd(clickedDate);
+      } else {
+        setTempStart(clickedDate);
+        setTempEnd(null);
+      }
+    }
+  };
+  
+  const handleApply = () => {
+    if (tempStart && tempEnd) {
+      const finalEnd = new Date(tempEnd);
+      finalEnd.setHours(23, 59, 59, 999);
+      onChange({ type: "custom", start: tempStart, end: finalEnd });
+      setIsOpen(false);
+    }
+  };
+
+  const getDayClass = (dayNum) => {
+    const date = new Date(year, month, dayNum);
+    date.setHours(0, 0, 0, 0);
+    const dateMs = date.getTime();
+    
+    const startMs = tempStart ? new Date(tempStart).setHours(0, 0, 0, 0) : null;
+    const endMs = tempEnd ? new Date(tempEnd).setHours(0, 0, 0, 0) : null;
+    
+    let classes = "calendar-day";
+    if (startMs && dateMs === startMs) {
+      classes += " selected";
+    } else if (endMs && dateMs === endMs) {
+      classes += " selected";
+    } else if (startMs && endMs && dateMs > startMs && dateMs < endMs) {
+      classes += " in-range";
+    }
+    return classes;
+  };
+  
+  const formatRangeLabel = () => {
+    const { type, start, end } = dateRange;
+    
+    let label = "Current Salad Week";
+    if (type === "previous-week") label = "Previous Salad Week";
+    if (type === "last-7-days") label = "Last 7 Days";
+    if (type === "custom") label = "Custom Range";
+    
+    if (!start || !end) {
+      const resolved = resolvePresetRange(type, weekStartDay);
+      return `${label} (${formatShortDate(resolved.start)} - ${formatShortDate(resolved.end)})`;
+    }
+    
+    return `${label} (${formatShortDate(start)} - ${formatShortDate(end)})`;
+  };
+  
+  const formatShortDate = (d) => {
+    return new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" }).format(new Date(d));
+  };
+  
+  const weekdays = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
+  const calendarDays = [];
+  
+  for (let i = 0; i < firstDayIndex; i++) {
+    calendarDays.push(<div key={`empty-${i}`} className="calendar-day-empty" />);
+  }
+  
+  for (let d = 1; d <= daysInMonth; d++) {
+    calendarDays.push(
+      <button
+        key={`day-${d}`}
+        type="button"
+        className={getDayClass(d)}
+        onClick={() => handleDayClick(d)}
+      >
+        {d}
+      </button>
+    );
+  }
+
+  return (
+    <div className="datepicker-container" ref={containerRef}>
+      <button
+        type="button"
+        className="datepicker-trigger"
+        onClick={() => setIsOpen(!isOpen)}
+      >
+        <span>📅 {formatRangeLabel()}</span>
+        <span style={{ fontSize: "10px", marginLeft: "4px" }}>▼</span>
+      </button>
+      
+      {isOpen && (
+        <div className="datepicker-popover">
+          <div className="datepicker-presets">
+            <button
+              type="button"
+              className={`preset-button ${dateRange.type === "current-week" ? "active" : ""}`}
+              onClick={() => selectPreset("current-week")}
+            >
+              Current Salad Week
+            </button>
+            <button
+              type="button"
+              className={`preset-button ${dateRange.type === "previous-week" ? "active" : ""}`}
+              onClick={() => selectPreset("previous-week")}
+            >
+              Previous Salad Week
+            </button>
+            <button
+              type="button"
+              className={`preset-button ${dateRange.type === "last-7-days" ? "active" : ""}`}
+              onClick={() => selectPreset("last-7-days")}
+            >
+              Last 7 Days
+            </button>
+            <button
+              type="button"
+              className={`preset-button ${dateRange.type === "custom" ? "active" : ""}`}
+              onClick={() => {
+                setTempStart(dateRange.start || new Date());
+                setTempEnd(null);
+              }}
+            >
+              Custom Range
+            </button>
+          </div>
+          
+          <div className="datepicker-calendar-panel">
+            <div className="calendar-header">
+              <button type="button" className="calendar-nav-btn" onClick={handlePrevMonth}>
+                ◀
+              </button>
+              <span className="calendar-month-title">
+                {currentMonth.toLocaleString(undefined, { month: "long", year: "numeric" })}
+              </span>
+              <button type="button" className="calendar-nav-btn" onClick={handleNextMonth}>
+                ▶
+              </button>
+            </div>
+            
+            <div className="calendar-grid">
+              {weekdays.map((wd) => (
+                <div key={wd} className="calendar-weekday">
+                  {wd}
+                </div>
+              ))}
+              {calendarDays}
+            </div>
+            
+            <div className="datepicker-actions">
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={() => setIsOpen(false)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="primary-button"
+                disabled={!tempStart || !tempEnd}
+                onClick={handleApply}
+              >
+                Apply
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ServerTimeComparison Component
+function ServerTimeComparison({ weekStartDay }) {
+  const [times, setTimes] = useState({
+    utc: new Date(),
+    local: new Date(),
+  });
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setTimes({
+        utc: new Date(),
+        local: new Date(),
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const formatClockTime = (d, isUtc) => {
+    return new Intl.DateTimeFormat(undefined, {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      timeZone: isUtc ? "UTC" : undefined,
+      hour12: false,
+    }).format(d);
+  };
+
+  const getResetCountdown = () => {
+    const nextReset = getNextResetTime(weekStartDay);
+    const now = new Date();
+    const diffMs = nextReset.getTime() - now.getTime();
+    if (diffMs <= 0) return "Resetting...";
+
+    const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+
+    const parts = [];
+    if (days > 0) parts.push(`${days}d`);
+    if (hours > 0 || days > 0) parts.push(`${hours}h`);
+    parts.push(`${minutes}m`);
+
+    return parts.join(" ");
+  };
+
+  const localOffset = -new Date().getTimezoneOffset() / 60;
+  const offsetLabel = `UTC${localOffset >= 0 ? "+" : ""}${localOffset}`;
+
+  return (
+    <section className="panel server-time-card" aria-label="Server time comparison">
+      <div>
+        <p className="section-label">Server Alignment</p>
+        <h2 style={{ fontSize: "18px", marginTop: "4px" }}>Salad Clock Comparison</h2>
+      </div>
+      
+      <div className="clocks-container">
+        <div className="clock-widget">
+          <span className="clock-label">Salad Server (UTC)</span>
+          <div className="clock-time">{formatClockTime(times.utc, true)}</div>
+          <span className="clock-offset">Coordinated Universal Time</span>
+        </div>
+        <div className="clock-widget">
+          <span className="clock-label">Local Rig Time</span>
+          <div className="clock-time">{formatClockTime(times.local, false)}</div>
+          <span className="clock-offset">Active timezone ({offsetLabel})</span>
+        </div>
+      </div>
+
+      <div className="reset-countdown">
+        <span>Estimated Star Chef reset ({weekStartDay}):</span>
+        <span style={{ color: "#9ef0b2", fontWeight: "900" }}>{getResetCountdown()}</span>
+      </div>
+    </section>
+  );
 }
 
 createRoot(document.getElementById("root")).render(

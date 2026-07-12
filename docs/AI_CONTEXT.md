@@ -7,7 +7,7 @@ This file is the compact project summary for agents working in this repository.
 - Name: MyKitchen.
 - Purpose: local web application for automatically calculating Salad Chopping
   hours and Star Chef qualification signals from a Salad installation folder.
-- Current version: 0.10.8.
+- Current version: 0.11.0.
 - Current phase: dashboard connected to a narrow read-only local helper with
   Chopping-hour history, Windows/WSL observability, live monitor, machine report
   export, one-command local suite orchestration, explicit empty offline states,

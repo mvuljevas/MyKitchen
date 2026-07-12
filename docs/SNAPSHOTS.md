@@ -1,5 +1,35 @@
 # Snapshots
 
+## 2026-07-12 - Block 030: Salad Week Alignment and Premium Date Range Picker
+
+Branch:
+
+- `main`
+
+Current state:
+
+- Restructured the dashboard layout:
+  - Aligned the interactive graph directly to the right of the primary card (Hero Panel) in a 2-column top grid (`.hero-chart-row`).
+  - Positioned the 4 metric cards below in a 4-column row.
+  - Placed the Salad Server clocks comparison widget and the Fidelity side panel in a bottom row (`.bottom-grid`).
+- Implemented Salad Server time comparison, showing Salad Server Time (UTC) vs. Local Rig Time side-by-side with an active countdown timer to the next weekly reset.
+- Added a "Salad Week Start Day" setting in the Configuration tab (persisted via `localStorage`), enabling custom definition of the start of the week.
+- Developed a custom, premium popover date range picker calendar `DatePickerPopover` supporting quick presets (Current Salad Week, Previous Salad Week, Last 7 Days) and manual calendar date range selection.
+- Modified Star Chef calculations to compute and filter qualification progress dynamically based on the selected date range.
+- Version bumped to 0.11.0.
+
+Decisions:
+
+- Introduce custom date range filtering client-side for dynamic Star Chef qualification estimation, supporting the flexible "week start day" settings.
+
+Risks:
+
+- None identified; all tests passed.
+
+Next suggested step:
+
+- Add a separate import workflow for multi-PC machine reports.
+
 ## 2026-07-08 - Block 029: Scan Support for .txt Main Salad Logs
 
 Branch:
