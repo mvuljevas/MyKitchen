@@ -273,8 +273,14 @@ h2 {
 }
 
 .hero-panel {
+  display: flex;
+  flex-direction: column;
   min-height: 278px;
   padding: 24px;
+}
+
+.hero-panel > .progress-track {
+  margin-top: auto;
 }
 
 @media (min-width: 1181px) {
@@ -298,7 +304,7 @@ h2 {
 }
 
 .hero-caption {
-  margin-bottom: 28px;
+  margin-bottom: 16px;
   color: #9ba8b8;
   font-weight: 750;
 }
@@ -315,7 +321,8 @@ h2 {
 
 .metric-card span {
   display: block;
-  margin-top: 6px;
+  margin-top: auto;
+  padding-top: 6px;
   font-size: 12px;
   line-height: 1.4;
 }
@@ -332,6 +339,8 @@ h2 {
 }
 
 .metric-card {
+  display: flex;
+  flex-direction: column;
   min-height: 122px;
   padding: 18px;
 }
@@ -452,6 +461,16 @@ h2 {
 .segment.active {
   background: rgb(158 240 178 / 15%);
   color: #fbfff8;
+}
+
+.side-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.side-panel > dl.definition-list {
+  margin-top: auto;
 }
 
 .side-panel h2 {
@@ -967,6 +986,16 @@ h2 {
   color: #fbfff8;
 }
 
+.hero-panel-datepicker-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 16px;
+  margin-bottom: 12px;
+}
+
 /* Datepicker Popover Styling */
 .datepicker-container {
   position: relative;
@@ -1149,5 +1178,26 @@ h2 {
   font-size: 11px;
   font-weight: 750;
   border-radius: 4px;
+}
+
+@media (max-width: 520px) {
+  .datepicker-popover {
+    width: 320px;
+    flex-direction: column;
+    right: auto;
+    left: 50%;
+    transform: translateX(-50%);
+  }
+  .datepicker-presets {
+    width: 100%;
+    border-right: none;
+    border-bottom: 1px solid rgb(148 163 184 / 12%);
+    flex-direction: row;
+    overflow-x: auto;
+    padding: 8px;
+  }
+  .preset-button {
+    white-space: nowrap;
+  }
 }
 

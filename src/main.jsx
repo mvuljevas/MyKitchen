@@ -360,7 +360,7 @@ function Overview({
           </div>
           <p className="hero-metric">{rangeHours.toFixed(2)}h</p>
           
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "16px", marginBottom: "12px" }}>
+          <div className="hero-panel-datepicker-row">
             <p className="hero-caption" style={{ margin: 0 }}>
               Confirmed hours:
             </p>
@@ -1120,18 +1120,18 @@ function ChoppingChart({ data, mode }) {
           non-zero measurement regardless of the parent's min-height rule. */}
       <ResponsiveContainer height={310} width="100%">
         {mode === "Bars" ? (
-          <BarChart data={chartData}>
+          <BarChart data={chartData} margin={{ top: 10, right: 10, left: -15, bottom: 5 }}>
             <CartesianGrid stroke="rgba(148, 163, 184, 0.14)" vertical={false} />
-            <XAxis dataKey="label" stroke="#7d8b9f" tickLine={false} />
-            <YAxis stroke="#7d8b9f" tickFormatter={(value) => `${value}h`} />
+            <XAxis dataKey="label" stroke="#7d8b9f" tickLine={false} tickMargin={10} />
+            <YAxis stroke="#7d8b9f" tickFormatter={(value) => `${value}h`} tickLine={false} tickMargin={10} />
             <Tooltip content={<ChartTooltip />} cursor={{ fill: "rgba(158, 240, 178, 0.08)" }} />
             <Bar dataKey="hours" fill="#8cf5a1" radius={[6, 6, 0, 0]} />
           </BarChart>
         ) : (
-          <AreaChart data={chartData}>
+          <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -15, bottom: 5 }}>
             <CartesianGrid stroke="rgba(148, 163, 184, 0.14)" vertical={false} />
-            <XAxis dataKey="label" stroke="#7d8b9f" tickLine={false} />
-            <YAxis stroke="#7d8b9f" tickFormatter={(value) => `${value}h`} />
+            <XAxis dataKey="label" stroke="#7d8b9f" tickLine={false} tickMargin={10} />
+            <YAxis stroke="#7d8b9f" tickFormatter={(value) => `${value}h`} tickLine={false} tickMargin={10} />
             <Tooltip content={<ChartTooltip />} />
             <Area
               activeDot={{ r: 5, stroke: "#fbfff8", strokeWidth: 2 }}
