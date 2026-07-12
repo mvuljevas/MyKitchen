@@ -259,9 +259,6 @@ function App() {
           <h1>Chopping cockpit</h1>
         </div>
         <div className="header-actions">
-          <StatusBadge tone={source === "helper" ? "confirmed" : "warning"}>
-            {source === "helper" ? "Helper connected" : "Helper offline"}
-          </StatusBadge>
           <span className="refresh-indicator">
             {isRefreshing ? "Refreshing" : `Auto ${refreshIntervalMs / 1000}s`}
             {lastRefreshedAt ? ` · ${formatTerminalTime(lastRefreshedAt)}` : ""}
@@ -1316,6 +1313,10 @@ function formatEventMessage(event) {
 }
 
 function formatWorkloadLabel(workload) {
+  if (workload.type === "idle") {
+    return "Idle / Not running";
+  }
+
   if (workload.type === "mining" || workload.type === "historical-mining") {
     const family = workload.label.match(/\(([^)]+)\)/)?.[1] ?? "GPU";
     return `Mining\u00a0(${family})`;

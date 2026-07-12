@@ -11,6 +11,26 @@ export function classifyWorkload({ logs = [], system = {}, lastSignalAt = null, 
   const signalIsLive = isRecentSignal(lastSignalAt);
   const lastSignalIsMiner = lastSignalSource ? isMinerPath(lastSignalSource) : false;
 
+  const wslProcesses = system.wsl?.processes ?? [];
+  const containerProcess = wslProcesses.find((process) =>
+    containerHints.some((hint) => process.name.toLowerCase().includes(hint)),
+  );
+  const isWslRunning = system.wsl?.saladDistro?.running;
+
+  // If no live workload process is running, no WSL container VM is active,
+  // and the last signal is not recent, the Salad rig is idle (not running).
+  if (!activeMinerProcess && !isWslRunning && !containerProcess && !signalIsLive) {
+    return {
+      type: "idle",
+      label: "Idle",
+      source: "process",
+      confidence: "confirmed",
+      since: null,
+      lastSignalAt,
+      evidence: null,
+    };
+  }
+
   // 1. Check for active mining workload
   if (activeMinerProcess || (recentMinerLog && signalIsLive && lastSignalIsMiner)) {
     const minerFamily = recentMinerLog

@@ -283,11 +283,6 @@ h2 {
   margin-top: auto;
 }
 
-@media (min-width: 1181px) {
-  .hero-panel {
-    grid-row: span 2;
-  }
-}
 
 .hero-panel-top,
 .hero-foot,
