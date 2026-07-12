@@ -21,7 +21,8 @@ Current state:
 - Added a quick controls bar below the header to launch Salad, sync, start/stop/restart background services, stop suite, and reboot the rig, and removed the duplicate Helper status badge from the header.
 - Separated Salad desktop app detection from background service check to show true process status, and added accurate idle state classification when Salad is closed.
 - Resolved UAC elevation deadlock by triggering requestElevatedHelper in the background and freeing the listener port before launching the new elevated process.
-- Version bumped to 0.12.3.
+- Fixed a duplicate declaration syntax error of wslProcesses and containerProcess in workloadClassifier.js.
+- Version bumped to 0.12.4.
 
 Decisions:
 

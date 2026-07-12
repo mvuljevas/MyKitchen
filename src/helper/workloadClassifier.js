@@ -49,10 +49,6 @@ export function classifyWorkload({ logs = [], system = {}, lastSignalAt = null, 
   }
 
   // 2. Check for active container/WSL workload
-  const wslProcesses = system.wsl?.processes ?? [];
-  const containerProcess = wslProcesses.find((process) =>
-    containerHints.some((hint) => process.name.toLowerCase().includes(hint)),
-  );
   const containerIsLive = signalIsLive && !lastSignalIsMiner;
 
   if (system.wsl?.saladDistro?.running || containerProcess || containerIsLive) {

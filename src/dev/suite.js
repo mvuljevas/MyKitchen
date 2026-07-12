@@ -4,6 +4,23 @@ import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { createServer } from "vite";
 import { ensureElevatedProcess } from "../helper/elevation.js";
+import fs from "node:fs";
+import path from "node:path";
+
+if (process.argv.includes("--salad-elevated-child") || process.env.SALAD_ELEVATED_RELAUNCH === "1") {
+  const logPath = path.join(process.cwd(), "suite_error.log");
+  fs.writeFileSync(logPath, `Elevated suite started at ${new Date().toISOString()}\n`);
+  
+  process.on("uncaughtException", (err) => {
+    fs.appendFileSync(logPath, `Uncaught Exception: ${err.stack || err}\n`);
+    process.exit(1);
+  });
+  
+  process.on("unhandledRejection", (reason) => {
+    fs.appendFileSync(logPath, `Unhandled Rejection: ${reason?.stack || reason}\n`);
+    process.exit(1);
+  });
+}
 
 const execFileAsync = promisify(execFile);
 const appUrl = "http://127.0.0.1:5173/";
