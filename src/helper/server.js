@@ -265,7 +265,14 @@ async function routeRequest(request, response) {
   }
 
   if (url.pathname === "/salad/elevate") {
-    sendJson(response, 200, await requestElevatedHelper());
+    sendJson(response, 200, { requested: true });
+    requestElevatedHelper().catch((err) => {
+      process.stderr.write(`Elevation request failed: ${err.message}\n`);
+    });
+    setTimeout(() => {
+      process.stdout.write("Exiting non-elevated helper to hand over to elevated helper process.\n");
+      process.exit(0);
+    }, 500);
     return;
   }
 

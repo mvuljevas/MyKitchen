@@ -20,7 +20,8 @@ Current state:
 - Modified Star Chef calculations to compute and filter qualification progress dynamically based on the selected date range.
 - Added a quick controls bar below the header to launch Salad, sync, start/stop/restart background services, stop suite, and reboot the rig, and removed the duplicate Helper status badge from the header.
 - Separated Salad desktop app detection from background service check to show true process status, and added accurate idle state classification when Salad is closed.
-- Version bumped to 0.12.2.
+- Resolved UAC elevation deadlock by triggering requestElevatedHelper in the background and freeing the listener port before launching the new elevated process.
+- Version bumped to 0.12.3.
 
 Decisions:
 
